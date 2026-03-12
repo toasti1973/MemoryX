@@ -109,7 +109,7 @@ services:
       - "3459"
     volumes:
       - admin-data:/data
-      - memory-data:/memory:ro
+      - memory-data:/memory
       - backup-data:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
