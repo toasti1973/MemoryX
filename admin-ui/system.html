@@ -3,121 +3,186 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Memory System — System</title>
+  <title>MemoryX — System</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
+
   <nav>
-    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
-    <a href="index.html">&#9632; Dashboard</a>
-    <a href="keys.html">&#128273; API-Keys</a>
-    <a href="episodes.html">&#128196; Episoden</a>
-    <a href="rules.html">&#9881; Regeln</a>
-    <a href="logs.html">&#128203; Logs</a>
-    <a href="system.html" class="active">&#9881; System</a>
+    <div class="nav-logo">
+      <div class="nav-logo-title">MemoryX</div>
+      <div class="nav-logo-sub">AI Memory System</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <a href="index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="keys.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="17" r="4"/><path d="m10.6 13.4 7-7"/><path d="m18 5 1 1"/><path d="m15 8 1 1"/></svg>
+        API-Keys
+      </a>
+      <a href="episodes.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Episoden
+      </a>
+      <a href="rules.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Regeln
+      </a>
+      <a href="logs.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Logs
+      </a>
+      <a href="system.html" class="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        System
+      </a>
+    </div>
+    <div class="nav-footer">
+      <div class="status-indicator">
+        <span class="pulse" id="nav-pulse" style="background:var(--warning)"></span>
+        <span id="nav-status" style="font-size:11px;color:var(--text-muted)">Verbinde...</span>
+      </div>
+    </div>
   </nav>
+
   <main class="main">
-    <h1>System-Verwaltung</h1>
+    <div class="page-header">
+      <h1>System-Verwaltung</h1>
+      <p>Ressourcen, Wartung und Service-Status</p>
+    </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <!-- Two-column: Ressourcen + Wartung -->
+    <div class="two-col">
 
+      <!-- Ressourcen -->
       <div class="card">
-        <h2>Ressourcen</h2>
-        <div id="stats-container" style="display:grid;gap:12px">Lade...</div>
+        <div class="card-header">
+          <div class="card-title">Ressourcen</div>
+        </div>
+        <div id="stats-container" class="stats-list">
+          <div class="stats-row"><span>Laden...</span></div>
+        </div>
       </div>
 
+      <!-- Wartungs-Aktionen -->
       <div class="card">
-        <h2>Wartungs-Aktionen</h2>
-        <div style="display:grid;gap:12px">
-          <div>
-            <strong style="display:block;margin-bottom:4px">Backup erstellen</strong>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">SQLite-Datenbank sichern</p>
-            <button class="btn btn-primary" onclick="runAction('backup')">&#128190; Backup jetzt</button>
-          </div>
-          <hr style="border-color:var(--border)">
-          <div>
-            <strong style="display:block;margin-bottom:4px">Garbage Collection</strong>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">Schwache und doppelte Episoden entfernen</p>
-            <button class="btn btn-ghost" onclick="runAction('gc')">&#9880; GC ausführen</button>
-          </div>
-          <hr style="border-color:var(--border)">
-          <div>
-            <strong style="display:block;margin-bottom:4px">Verbindungstest</strong>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">Alle Services prüfen</p>
-            <button class="btn btn-ghost" onclick="checkHealth()">&#10003; Health-Check</button>
-          </div>
+        <div class="card-header">
+          <div class="card-title">Wartungs-Aktionen</div>
+        </div>
+
+        <div class="action-item">
+          <div class="action-label">Backup erstellen</div>
+          <div class="action-desc">SQLite-Datenbank sichern</div>
+          <button class="btn btn-primary" onclick="runAction('backup')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Backup jetzt
+          </button>
+        </div>
+
+        <div class="action-item">
+          <div class="action-label">Garbage Collection</div>
+          <div class="action-desc">Schwache und doppelte Episoden entfernen</div>
+          <button class="btn btn-ghost" onclick="runAction('gc')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            GC ausführen
+          </button>
+        </div>
+
+        <div class="action-item">
+          <div class="action-label">Verbindungstest</div>
+          <div class="action-desc">Alle Services prüfen</div>
+          <button class="btn btn-ghost" onclick="checkHealth()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Health-Check
+          </button>
         </div>
       </div>
 
     </div>
 
-    <div class="card" style="margin-top:0">
-      <h2>Service Status</h2>
-      <div id="health-grid" class="service-grid">Lade...</div>
+    <!-- Service Status -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Service Status</div>
+      </div>
+      <div id="health-grid" class="service-grid">
+        <div class="service-card">
+          <span class="dot dot-warn" id="svc-dot-memory"></span>
+          <div>
+            <div class="service-name">memory-service</div>
+            <div class="service-status" id="svc-status-memory">Prüfe...</div>
+          </div>
+        </div>
+        <div class="service-card">
+          <span class="dot dot-warn" id="svc-dot-ollama"></span>
+          <div>
+            <div class="service-name">ollama</div>
+            <div class="service-status" id="svc-status-ollama">Prüfe...</div>
+          </div>
+        </div>
+        <div class="service-card">
+          <span class="dot dot-warn" id="svc-dot-admin-api"></span>
+          <div>
+            <div class="service-name">admin-api</div>
+            <div class="service-status" id="svc-status-admin-api">Prüfe...</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div id="result-area" style="display:none" class="card">
-      <h2>Ergebnis</h2>
-      <pre id="result-text" style="font-size:12px;color:var(--text-muted);white-space:pre-wrap"></pre>
+    <!-- Result area -->
+    <div id="result-area" class="card" style="display:none">
+      <div class="card-header">
+        <div class="card-title">Ergebnis</div>
+      </div>
+      <pre id="result-text" class="result-pre"></pre>
     </div>
+
   </main>
 </div>
 
 <script src="api.js"></script>
 <script>
-async function load() {
+async function loadStats() {
   try {
     const stats = await api.stats();
     const container = document.getElementById('stats-container');
     container.innerHTML = `
-      <div style="display:flex;justify-content:space-between">
-        <span style="color:var(--text-muted)">Episoden</span>
-        <strong>${stats.episodeCount ?? '—'}</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between">
-        <span style="color:var(--text-muted)">Regeln (bestätigt)</span>
-        <strong>${stats.ruleCount ?? '—'}</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between">
-        <span style="color:var(--text-muted)">Hit-Rate</span>
-        <strong>${stats.hitRate ? (stats.hitRate * 100).toFixed(1) + '%' : '—'}</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between">
-        <span style="color:var(--text-muted)">Durchschn. Qualität</span>
-        <strong>${stats.avgScore ?? '—'}</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between">
-        <span style="color:var(--text-muted)">DB-Grösse</span>
-        <strong>${stats.dbSizeMB ?? '—'} MB</strong>
-      </div>
+      <div class="stats-row"><span>Episoden</span><strong>${stats.episodeCount ?? '—'}</strong></div>
+      <div class="stats-row"><span>Regeln (bestätigt)</span><strong>${stats.ruleCount ?? '—'}</strong></div>
+      <div class="stats-row"><span>Hit-Rate</span><strong>${stats.hitRate != null ? (stats.hitRate * 100).toFixed(1) + '%' : '—'}</strong></div>
+      <div class="stats-row"><span>Durchschn. Qualität</span><strong>${stats.avgScore ?? '—'}</strong></div>
+      <div class="stats-row"><span>DB-Größe</span><strong>${stats.dbSizeMB != null ? stats.dbSizeMB + ' MB' : '—'}</strong></div>
     `;
   } catch (err) {
-    document.getElementById('stats-container').textContent = 'Fehler beim Laden';
+    document.getElementById('stats-container').innerHTML = '<div class="stats-row"><span style="color:var(--error)">Fehler beim Laden</span></div>';
   }
 }
 
 async function checkHealth() {
   try {
     const health = await api.health();
-    const grid   = document.getElementById('health-grid');
     const svcs   = health.services || {};
-    const entries = [
-      ['memory-service', svcs['memory-service'] || 'unknown'],
-      ['admin-api',      'ok'],
-    ];
-    grid.innerHTML = entries.map(([name, status]) => `
-      <div class="service-card">
-        <span class="dot ${status === 'ok' ? 'dot-ok' : 'dot-error'}"></span>
-        <div>
-          <div class="service-name">${name}</div>
-          <div class="service-status">${status === 'ok' ? 'Online' : 'Offline / Fehler'}</div>
-        </div>
-      </div>
-    `).join('');
+
+    setSvcStatus('memory',    svcs['memory-service']);
+    setSvcStatus('ollama',    svcs['ollama']);
+    setSvcStatus('admin-api', 'ok');
+
+    // Update nav
+    document.getElementById('nav-pulse').style.background = 'var(--success)';
+    document.getElementById('nav-status').textContent = 'Online';
+
     showResult(JSON.stringify(health, null, 2));
   } catch (err) {
+    setSvcStatus('admin-api', 'error');
+    document.getElementById('nav-pulse').style.background = 'var(--error)';
+    document.getElementById('nav-status').textContent = 'Fehler';
     showToast('Fehler: ' + err.message, 'error');
+    showResult('Fehler: ' + err.message);
   }
 }
 
@@ -126,12 +191,28 @@ async function runAction(action) {
     let result;
     if (action === 'backup') result = await api.backup();
     else if (action === 'gc') result = await api.gc();
-    showToast(action + ' erfolgreich');
+    showToast(action === 'backup' ? 'Backup erfolgreich' : 'GC erfolgreich');
     showResult(JSON.stringify(result, null, 2));
-    load();
+    loadStats();
   } catch (err) {
     showToast('Fehler: ' + err.message, 'error');
     showResult('Fehler: ' + err.message);
+  }
+}
+
+function setSvcStatus(name, status) {
+  const dot   = document.getElementById('svc-dot-' + name);
+  const label = document.getElementById('svc-status-' + name);
+  if (!dot) return;
+  if (status === 'ok') {
+    dot.className = 'dot dot-ok';
+    if (label) label.textContent = 'Online';
+  } else if (status === 'error' || status === 'offline') {
+    dot.className = 'dot dot-error';
+    if (label) label.textContent = 'Offline / Fehler';
+  } else {
+    dot.className = 'dot dot-warn';
+    if (label) label.textContent = status ? status : 'Unbekannt';
   }
 }
 
@@ -140,7 +221,7 @@ function showResult(text) {
   document.getElementById('result-text').textContent = text;
 }
 
-load();
+loadStats();
 checkHealth();
 </script>
 </body>

@@ -21,7 +21,9 @@
         basicauth {
             {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
         }
-        reverse_proxy admin-api:3459
+        reverse_proxy admin-api:3459 {
+            header_up X-Admin-Key {$ADMIN_API_KEY}
+        }
     }
 
     # ── Admin Web-Dashboard ───────────────────────────────────────────────

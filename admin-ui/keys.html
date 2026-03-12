@@ -3,45 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Memory System — API-Keys</title>
+  <title>MemoryX — API-Keys</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
-  <nav>
-    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
-    <a href="index.html">&#9632; Dashboard</a>
-    <a href="keys.html" class="active">&#128273; API-Keys</a>
-    <a href="episodes.html">&#128196; Episoden</a>
-    <a href="rules.html">&#9881; Regeln</a>
-    <a href="logs.html">&#128203; Logs</a>
-    <a href="system.html">&#9881; System</a>
-  </nav>
-  <main class="main">
-    <h1>API-Keys</h1>
 
-    <div class="toolbar">
-      <button class="btn btn-primary" onclick="showCreateModal()">+ Neuer Key</button>
-      <span class="toolbar-spacer"></span>
-      <button class="btn btn-ghost" onclick="load()">&#8635; Aktualisieren</button>
+  <nav>
+    <div class="nav-logo">
+      <div class="nav-logo-title">MemoryX</div>
+      <div class="nav-logo-sub">AI Memory System</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <a href="index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="keys.html" class="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="17" r="4"/><path d="m10.6 13.4 7-7"/><path d="m18 5 1 1"/><path d="m15 8 1 1"/></svg>
+        API-Keys
+      </a>
+      <a href="episodes.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Episoden
+      </a>
+      <a href="rules.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Regeln
+      </a>
+      <a href="logs.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Logs
+      </a>
+      <a href="system.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        System
+      </a>
+    </div>
+    <div class="nav-footer">
+      <div class="status-indicator">
+        <span class="pulse" id="nav-pulse" style="background:var(--warning)"></span>
+        <span id="nav-status" style="font-size:11px;color:var(--text-muted)">Verbinde...</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <h1>API-Keys</h1>
+      <p>Zugriffsschlüssel verwalten</p>
     </div>
 
-    <div class="card">
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="showCreateModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Neuer Key
+      </button>
+      <span class="toolbar-spacer"></span>
+      <button class="btn btn-ghost" onclick="load()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Aktualisieren
+      </button>
+    </div>
+
+    <div class="card" style="padding:0">
       <table>
         <thead>
           <tr>
-            <th>Name</th>
+            <th style="padding-left:24px">Name</th>
             <th>Scope</th>
             <th>Namespaces</th>
             <th>Rate-Limit</th>
             <th>Zuletzt genutzt</th>
             <th>Erstellt</th>
             <th>Status</th>
-            <th>Aktionen</th>
+            <th style="padding-right:24px">Aktionen</th>
           </tr>
         </thead>
         <tbody id="keys-table">
-          <tr><td colspan="8" style="color:var(--text-muted);text-align:center">Lade...</td></tr>
+          <tr><td colspan="8"><div class="empty-state"><p>Lade...</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -54,7 +95,7 @@
     <div class="modal-title">Neuen API-Key erstellen</div>
     <div class="form-row">
       <div class="form-group">
-        <label>Name (z.B. 'vscode-laptop')</label>
+        <label>Name (z.B. vscode-laptop)</label>
         <input id="key-name" type="text" placeholder="vscode-laptop-thorsten">
       </div>
     </div>
@@ -86,14 +127,17 @@
   </div>
 </div>
 
-<!-- Schlüssel-Anzeige Modal -->
+<!-- Key-Anzeige Modal -->
 <div id="key-display-modal" class="modal-backdrop" style="display:none">
   <div class="modal">
     <div class="modal-title">API-Key erstellt</div>
-    <div class="alert alert-info">Dieser Key wird nur einmal angezeigt. Jetzt kopieren und sicher speichern!</div>
+    <div class="alert alert-warning">Dieser Key wird nur einmal angezeigt. Jetzt kopieren und sicher speichern!</div>
     <div class="key-display" id="new-key-value"></div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="copyToClipboard(document.getElementById('new-key-value').textContent)">&#128203; Kopieren</button>
+      <button class="btn btn-ghost" onclick="copyToClipboard(document.getElementById('new-key-value').textContent)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Kopieren
+      </button>
       <button class="btn btn-primary" onclick="closeKeyDisplayModal()">Verstanden</button>
     </div>
   </div>
@@ -102,24 +146,34 @@
 <script src="api.js"></script>
 <script>
 async function load() {
+  // Update nav status
+  try {
+    await api.health();
+    document.getElementById('nav-pulse').style.background = 'var(--success)';
+    document.getElementById('nav-status').textContent = 'Online';
+  } catch (e) {
+    document.getElementById('nav-pulse').style.background = 'var(--error)';
+    document.getElementById('nav-status').textContent = 'Fehler';
+  }
+
   try {
     const keys = await api.keys.list();
     const tbody = document.getElementById('keys-table');
-    if (keys.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--text-muted);text-align:center">Keine Keys vorhanden</td></tr>';
+    if (!keys || keys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="17" r="4"/><path d="m10.6 13.4 7-7"/><path d="m18 5 1 1"/><path d="m15 8 1 1"/></svg><p>Keine API-Keys vorhanden</p></div></td></tr>';
       return;
     }
     tbody.innerHTML = keys.map(k => `
       <tr>
-        <td><strong>${k.name}</strong></td>
-        <td><span class="badge badge-blue">${k.scope}</span></td>
-        <td><code>${k.namespaces}</code></td>
-        <td>${k.rate_limit}/min</td>
-        <td>${formatDate(k.last_used)}</td>
-        <td>${formatDate(k.created_at)}</td>
+        <td style="padding-left:24px"><strong>${escHtml(k.name)}</strong></td>
+        <td><span class="badge badge-purple">${escHtml(k.scope)}</span></td>
+        <td><code>${escHtml(k.namespaces)}</code></td>
+        <td style="color:var(--text-muted)">${k.rate_limit}/min</td>
+        <td style="color:var(--text-muted)">${formatDate(k.last_used)}</td>
+        <td style="color:var(--text-muted)">${formatDate(k.created_at)}</td>
         <td><span class="badge ${k.active ? 'badge-green' : 'badge-red'}">${k.active ? 'Aktiv' : 'Widerrufen'}</span></td>
-        <td>
-          ${k.active ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${k.id}', '${k.name}')">Widerrufen</button>` : '—'}
+        <td style="padding-right:24px">
+          ${k.active ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${k.id}', '${escHtml(k.name)}')">Widerrufen</button>` : '<span style="color:var(--text-dim)">—</span>'}
         </td>
       </tr>
     `).join('');
@@ -164,6 +218,11 @@ function showCreateModal() {
 
 function closeModal() { document.getElementById('create-modal').style.display = 'none'; }
 function closeKeyDisplayModal() { document.getElementById('key-display-modal').style.display = 'none'; }
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 load();
 </script>

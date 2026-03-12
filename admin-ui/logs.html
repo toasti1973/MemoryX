@@ -3,22 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Memory System — Logs</title>
+  <title>MemoryX — Logs</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
+
   <nav>
-    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
-    <a href="index.html">&#9632; Dashboard</a>
-    <a href="keys.html">&#128273; API-Keys</a>
-    <a href="episodes.html">&#128196; Episoden</a>
-    <a href="rules.html">&#9881; Regeln</a>
-    <a href="logs.html" class="active">&#128203; Logs</a>
-    <a href="system.html">&#9881; System</a>
+    <div class="nav-logo">
+      <div class="nav-logo-title">MemoryX</div>
+      <div class="nav-logo-sub">AI Memory System</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <a href="index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="keys.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="17" r="4"/><path d="m10.6 13.4 7-7"/><path d="m18 5 1 1"/><path d="m15 8 1 1"/></svg>
+        API-Keys
+      </a>
+      <a href="episodes.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Episoden
+      </a>
+      <a href="rules.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Regeln
+      </a>
+      <a href="logs.html" class="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Logs
+      </a>
+      <a href="system.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        System
+      </a>
+    </div>
+    <div class="nav-footer">
+      <div class="status-indicator">
+        <span class="pulse" id="nav-pulse" style="background:var(--warning)"></span>
+        <span id="nav-status" style="font-size:11px;color:var(--text-muted)">Verbinde...</span>
+      </div>
+    </div>
   </nav>
+
   <main class="main">
-    <h1>Zugriffslogs</h1>
+    <div class="page-header">
+      <h1>Zugriffslogs</h1>
+      <p>API-Anfragen und Systemereignisse</p>
+    </div>
 
     <div class="toolbar">
       <select id="lines-select" style="width:auto">
@@ -27,10 +62,14 @@
         <option value="200">Letzte 200</option>
         <option value="500">Letzte 500</option>
       </select>
-      <button class="btn btn-primary" onclick="load()">Laden</button>
+      <button class="btn btn-primary" onclick="load()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Laden
+      </button>
       <span class="toolbar-spacer"></span>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()"> Auto-Refresh (10s)
+      <label class="refresh-label">
+        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()">
+        Auto-Refresh (10s)
       </label>
     </div>
 
@@ -38,16 +77,16 @@
       <table>
         <thead>
           <tr>
-            <th style="padding-left:20px">Zeit</th>
+            <th style="padding-left:24px">Zeit</th>
             <th>Endpunkt</th>
             <th>Client</th>
             <th>Namespace</th>
             <th>Latenz</th>
-            <th>Status</th>
+            <th style="padding-right:24px">Status</th>
           </tr>
         </thead>
         <tbody id="log-table">
-          <tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:20px">Klicke "Laden"</td></tr>
+          <tr><td colspan="6"><div class="empty-state"><p>Lade Logs...</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -60,24 +99,41 @@ let refreshInterval = null;
 
 async function load() {
   const lines = document.getElementById('lines-select').value;
+
   try {
-    const logs = await api.logs({ lines });
+    await api.health();
+    document.getElementById('nav-pulse').style.background = 'var(--success)';
+    document.getElementById('nav-status').textContent = 'Online';
+  } catch (e) {
+    document.getElementById('nav-pulse').style.background = 'var(--error)';
+    document.getElementById('nav-status').textContent = 'Fehler';
+  }
+
+  try {
+    const logs  = await api.logs({ lines });
     const tbody = document.getElementById('log-table');
-    if (logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:20px">Keine Logs</td></tr>';
+
+    if (!logs || logs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/></svg>
+        <p>Keine Logs vorhanden</p>
+      </div></td></tr>`;
       return;
     }
+
     tbody.innerHTML = logs.map(l => {
       const isError  = l.status >= 500;
       const isWarn   = l.status >= 400 && l.status < 500;
-      const rowStyle = isError ? 'background:rgba(239,68,68,0.05)' : isWarn ? 'background:rgba(245,158,11,0.05)' : '';
-      return `<tr style="${rowStyle}">
-        <td style="padding-left:20px;white-space:nowrap">${formatDate(l.created_at)}</td>
-        <td><code>${l.endpoint}</code></td>
-        <td>${l.key_name || l.key_id || '—'}</td>
-        <td>${l.namespace || '—'}</td>
-        <td>${l.latency_ms != null ? l.latency_ms + ' ms' : '—'}</td>
-        <td><span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}">${l.status}</span></td>
+      const rowClass = isError ? 'tr-error' : isWarn ? 'tr-warn' : '';
+      return `<tr class="${rowClass}">
+        <td style="padding-left:24px;white-space:nowrap;color:var(--text-muted)">${formatDate(l.created_at)}</td>
+        <td><code>${escHtml(l.endpoint || '—')}</code></td>
+        <td style="color:var(--text-muted)">${escHtml(l.key_name || l.key_id || '—')}</td>
+        <td style="color:var(--text-muted)">${escHtml(l.namespace || '—')}</td>
+        <td style="color:var(--text-muted)">${l.latency_ms != null ? l.latency_ms + ' ms' : '—'}</td>
+        <td style="padding-right:24px">
+          <span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}">${l.status}</span>
+        </td>
       </tr>`;
     }).join('');
   } catch (err) {
@@ -90,7 +146,13 @@ function toggleAutoRefresh() {
     refreshInterval = setInterval(load, 10000);
   } else {
     clearInterval(refreshInterval);
+    refreshInterval = null;
   }
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 load();

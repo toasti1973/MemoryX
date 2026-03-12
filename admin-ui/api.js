@@ -1,19 +1,14 @@
 // Zentrales API-Client Modul für Admin-UI
 // Alle Calls gehen gegen die admin-api via Caddy (/api/*)
+// X-Admin-Key wird von Caddy via header_up injiziert (aus $ADMIN_API_KEY)
 
 const API_BASE = '/api';
-
-// Admin-Key wird aus localStorage geholt (gesetzt beim ersten Aufruf)
-function getAdminKey() {
-  return localStorage.getItem('admin_key') || '';
-}
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(API_BASE + path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'X-Admin-Key': getAdminKey(),
       ...(options.headers || {})
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -70,7 +65,7 @@ function copyToClipboard(text) {
 
 function showToast(msg, type = 'success') {
   const el = document.createElement('div');
-  el.style.cssText = `position:fixed;bottom:24px;right:24px;background:${type==='error'?'#ef4444':'#22c55e'};color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)`;
+  el.style.cssText = `position:fixed;bottom:24px;right:24px;background:${type==='error'?'#f04747':'#22d47e'};color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-weight:500`;
   el.textContent = msg;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);

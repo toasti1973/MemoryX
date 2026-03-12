@@ -3,57 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Memory System — Dashboard</title>
+  <title>MemoryX — Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
-  <nav>
-    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
-    <a href="index.html" class="active">&#9632; Dashboard</a>
-    <a href="keys.html">&#128273; API-Keys</a>
-    <a href="episodes.html">&#128196; Episoden</a>
-    <a href="rules.html">&#9881; Regeln</a>
-    <a href="logs.html">&#128203; Logs</a>
-    <a href="system.html">&#9881; System</a>
-  </nav>
-  <main class="main">
-    <h1>Dashboard</h1>
 
-    <div class="kpi-grid" id="kpi-grid">
-      <div class="kpi"><div class="kpi-value" id="kpi-episodes">—</div><div class="kpi-label">Episoden</div></div>
-      <div class="kpi"><div class="kpi-value" id="kpi-rules">—</div><div class="kpi-label">Regeln</div></div>
-      <div class="kpi"><div class="kpi-value" id="kpi-hitrate">—</div><div class="kpi-label">Hit-Rate</div></div>
-      <div class="kpi"><div class="kpi-value" id="kpi-dbsize">—</div><div class="kpi-label">DB-Grösse</div></div>
-      <div class="kpi"><div class="kpi-value" id="kpi-avgscore">—</div><div class="kpi-label">Ø Qualität</div></div>
+  <nav>
+    <div class="nav-logo">
+      <div class="nav-logo-title">MemoryX</div>
+      <div class="nav-logo-sub">AI Memory System</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <a href="index.html" class="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="keys.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="17" r="4"/><path d="m10.6 13.4 7-7"/><path d="m18 5 1 1"/><path d="m15 8 1 1"/></svg>
+        API-Keys
+      </a>
+      <a href="episodes.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Episoden
+      </a>
+      <a href="rules.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Regeln
+      </a>
+      <a href="logs.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Logs
+      </a>
+      <a href="system.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        System
+      </a>
+    </div>
+    <div class="nav-footer">
+      <div class="status-indicator">
+        <span class="pulse" id="nav-pulse" style="background:var(--warning)"></span>
+        <span id="nav-status" style="font-size:11px;color:var(--text-muted)">Verbinde...</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <p>System-Übersicht</p>
     </div>
 
+    <!-- KPI Grid -->
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-icon kpi-icon-violet">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        </div>
+        <div class="kpi-value" id="kpi-episodes">—</div>
+        <div class="kpi-label">Episoden</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-icon kpi-icon-blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="kpi-value" id="kpi-rules">—</div>
+        <div class="kpi-label">Regeln</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-icon kpi-icon-green">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="kpi-value" id="kpi-hitrate">—</div>
+        <div class="kpi-label">Hit-Rate</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-icon kpi-icon-orange">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <div class="kpi-value" id="kpi-dbsize">—</div>
+        <div class="kpi-label">DB-Größe</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-icon kpi-icon-pink">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div class="kpi-value" id="kpi-avgscore">—</div>
+        <div class="kpi-label">Ø Qualität</div>
+      </div>
+    </div>
+
+    <!-- Service Status -->
     <div class="card">
-      <h2>Service Status</h2>
-      <div class="service-grid" id="service-grid">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Service Status</div>
+          <div class="card-subtitle">Echtzeit-Verbindungsstatus</div>
+        </div>
+      </div>
+      <div class="service-grid">
         <div class="service-card">
           <span class="dot dot-warn" id="dot-memory"></span>
-          <div><div class="service-name">memory-service</div><div class="service-status" id="status-memory">Prüfe...</div></div>
+          <div>
+            <div class="service-name">memory-service</div>
+            <div class="service-status" id="status-memory">Prüfe...</div>
+          </div>
         </div>
         <div class="service-card">
           <span class="dot dot-warn" id="dot-ollama"></span>
-          <div><div class="service-name">ollama</div><div class="service-status" id="status-ollama">Prüfe...</div></div>
+          <div>
+            <div class="service-name">ollama</div>
+            <div class="service-status" id="status-ollama">Prüfe...</div>
+          </div>
         </div>
         <div class="service-card">
           <span class="dot dot-warn" id="dot-admin-api"></span>
-          <div><div class="service-name">admin-api</div><div class="service-status" id="status-admin-api">Prüfe...</div></div>
+          <div>
+            <div class="service-name">admin-api</div>
+            <div class="service-status" id="status-admin-api">Prüfe...</div>
+          </div>
         </div>
       </div>
     </div>
 
+    <!-- Recent Activity -->
     <div class="card">
-      <h2>Letzte Aktivität</h2>
+      <div class="card-header">
+        <div>
+          <div class="card-title">Letzte Aktivität</div>
+          <div class="card-subtitle">Aktualisiert alle 30 Sekunden</div>
+        </div>
+      </div>
       <table>
         <thead>
-          <tr><th>Zeit</th><th>Endpunkt</th><th>Client</th><th>Namespace</th><th>Latenz</th><th>Status</th></tr>
+          <tr>
+            <th>Zeit</th>
+            <th>Endpunkt</th>
+            <th>Client</th>
+            <th>Namespace</th>
+            <th>Latenz</th>
+            <th>Status</th>
+          </tr>
         </thead>
         <tbody id="log-table">
-          <tr><td colspan="6" style="color:var(--text-muted);text-align:center">Lade...</td></tr>
+          <tr><td colspan="6"><div class="empty-state"><p>Lade Aktivität...</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -64,42 +158,54 @@
 <script>
 async function load() {
   try {
-    const [stats, health, logs] = await Promise.all([api.stats(), api.health(), api.logs({ lines: 10 })]);
+    const [stats, health, logs] = await Promise.all([
+      api.stats(),
+      api.health(),
+      api.logs({ lines: 10 })
+    ]);
 
     document.getElementById('kpi-episodes').textContent = stats.episodeCount ?? '—';
     document.getElementById('kpi-rules').textContent    = stats.ruleCount ?? '—';
-    document.getElementById('kpi-hitrate').textContent  = stats.hitRate ? (stats.hitRate * 100).toFixed(0) + '%' : '—';
-    document.getElementById('kpi-dbsize').textContent   = stats.dbSizeMB ? stats.dbSizeMB + ' MB' : '—';
+    document.getElementById('kpi-hitrate').textContent  = stats.hitRate != null ? (stats.hitRate * 100).toFixed(0) + '%' : '—';
+    document.getElementById('kpi-dbsize').textContent   = stats.dbSizeMB != null ? stats.dbSizeMB + ' MB' : '—';
     document.getElementById('kpi-avgscore').textContent = stats.avgScore ?? '—';
 
     const svcs = health.services || {};
-    setStatus('memory', svcs['memory-service']);
+    setStatus('memory',    svcs['memory-service']);
+    setStatus('ollama',    svcs['ollama']);
     setStatus('admin-api', 'ok');
 
+    // Nav pulse
+    document.getElementById('nav-pulse').style.background = 'var(--success)';
+    document.getElementById('nav-status').textContent = 'Online';
+
     const tbody = document.getElementById('log-table');
-    if (logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center">Keine Aktivität</td></tr>';
-    } else {
-      tbody.innerHTML = logs.map(l => `
-        <tr>
-          <td>${formatDate(l.created_at)}</td>
-          <td><code>${l.endpoint}</code></td>
-          <td>${l.key_name || l.key_id || '—'}</td>
-          <td>${l.namespace || '—'}</td>
-          <td>${l.latency_ms ?? '—'} ms</td>
-          <td><span class="badge ${l.status < 400 ? 'badge-green' : 'badge-red'}">${l.status}</span></td>
-        </tr>
-      `).join('');
+    if (!logs || logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><p>Keine Aktivität vorhanden</p></div></td></tr>';
+      return;
     }
+    tbody.innerHTML = logs.map(l => `
+      <tr>
+        <td style="white-space:nowrap;color:var(--text-muted)">${formatDate(l.created_at)}</td>
+        <td><code>${l.endpoint || '—'}</code></td>
+        <td>${l.key_name || l.key_id || '—'}</td>
+        <td>${l.namespace || '—'}</td>
+        <td style="color:var(--text-muted)">${l.latency_ms != null ? l.latency_ms + ' ms' : '—'}</td>
+        <td><span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}">${l.status}</span></td>
+      </tr>
+    `).join('');
   } catch (err) {
     console.error(err);
     setStatus('admin-api', 'error');
+    document.getElementById('nav-pulse').style.background = 'var(--error)';
+    document.getElementById('nav-status').textContent = 'Fehler';
   }
 }
 
 function setStatus(name, status) {
-  const dot = document.getElementById('dot-' + name);
+  const dot   = document.getElementById('dot-' + name);
   const label = document.getElementById('status-' + name);
+  if (!dot) return;
   if (status === 'ok') {
     dot.className = 'dot dot-ok';
     if (label) label.textContent = 'Online';
@@ -108,7 +214,7 @@ function setStatus(name, status) {
     if (label) label.textContent = 'Offline';
   } else {
     dot.className = 'dot dot-warn';
-    if (label) label.textContent = 'Unbekannt';
+    if (label) label.textContent = status ? status : 'Unbekannt';
   }
 }
 
