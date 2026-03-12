@@ -131,8 +131,11 @@ curl -sk <URL_VOM_NUTZER>/health
 
 **Erwartete Antwort:**
 ```json
-{"status":"ok","services":{"memory-service":"ok"},"timestamp":1234567890}
+{"status":"ok","db":"ok","ollama":"ok","uptime":13682,"version":"1.0.0"}
 ```
+
+> Hinweis: `db: ok` = SQLite erreichbar, `ollama: ok` = Embedding-Modell geladen.
+> Wenn `status: ok`, läuft der gesamte Stack korrekt.
 
 **Wenn `status: ok`:** Schreib dem Nutzer: "Server ist erreichbar, Integration abgeschlossen."
 
@@ -142,10 +145,33 @@ Prüfe folgende Ursachen und kommuniziere sie:
 
 | Fehler | Mögliche Ursache | Lösung |
 |--------|-----------------|--------|
-| `curl: (6) Could not resolve host` | DNS-Eintrag fehlt | `memory.local` in `/etc/hosts` eintragen |
-| `curl: (60) SSL certificate problem` | Caddy CA nicht importiert | Root-CA-Zertifikat auf diesem Rechner importieren |
+| `curl: (6) Could not resolve host` | DNS-Eintrag fehlt | `memory.local` in `/etc/hosts` oder DNS eintragen |
+| `curl: (60) SSL certificate problem` | Caddy CA nicht importiert | Root-CA-Zertifikat importieren (siehe unten) |
 | `curl: (7) Failed to connect` | Stack läuft nicht | `docker compose ps` auf dem Server prüfen |
+| `tlsv1 alert internal error` | Falscher Hostname | Nicht `localhost` verwenden — nur `memory.local` |
 | `{"status":"degraded"}` | Ollama lädt noch | 2 Minuten warten, erneut prüfen |
+
+**Hosts-Eintrag setzen (einmalig pro Client-Rechner):**
+
+```bash
+# Linux / macOS
+echo "192.168.x.x  memory.local" | sudo tee -a /etc/hosts
+
+# Windows (PowerShell als Administrator)
+Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value "192.168.x.x  memory.local"
+```
+
+**CA-Zertifikat exportieren und importieren (einmalig):**
+
+```bash
+# Auf dem Server: CA-Zertifikat aus Caddy-Container exportieren
+docker cp memory-caddy:/data/caddy/pki/authorities/local/root.crt /opt/MemoryX/config/caddy/ca.crt
+
+# Dann auf dem Client importieren:
+# Windows: Doppelklick auf root.crt → "Vertrauenswürdige Stammzertifizierungsstellen"
+# macOS:   sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain root.crt
+# Linux:   sudo cp root.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates
+```
 
 ---
 
@@ -198,7 +224,7 @@ Berichte dem Nutzer nach der Integration:
 MemoryX wurde erfolgreich in dein Projekt integriert.
 
 Erstellte Dateien:
-- .mcp.json        → MCP-Verbindung zu https://memory.local/mcp
+- .mcp.json        → MCP-Verbindung zu <URL_VOM_NUTZER>/mcp
 - CLAUDE.md        → Anweisungen für jede Sitzung
 
 Konfiguration:
@@ -210,7 +236,7 @@ Konfiguration:
 Nächste Schritte:
 1. VS Code neu laden (Ctrl+Shift+P → "Reload Window")
 2. Neue Sitzung starten → erster automatischer Recall läuft
-3. Nach der Sitzung: Admin-Dashboard prüfen unter https://memory.local/admin/episodes.html
+3. Nach der Sitzung: Admin-Dashboard prüfen unter <URL_VOM_NUTZER>/admin/episodes.html
 ```
 
 ---
@@ -228,6 +254,64 @@ Anleitung geben:
 5. Namespaces: "project:<projektname>,global"
 6. Erstellen → Key kopieren und mir mitteilen
 ```
+
+### API-Key funktioniert nicht (401 oder leere Antwort)
+
+API-Keys werden im Admin-Dashboard erstellt (`admin.db`) und müssen in `memory.db` synchronisiert werden.
+Falls die Synchronisation fehlschlägt (z.B. weil das Volume read-only war), Key manuell synchen:
+
+```bash
+docker exec memory-admin-api node -e "
+const Database = require('better-sqlite3');
+const adminDb = new Database('/data/admin.db');
+const memDb = new Database('/memory/memory.db');
+const rows = adminDb.prepare('SELECT id, name, key_value, scope, namespaces, rate_limit, expires_at FROM api_keys WHERE active = 1').all();
+rows.forEach(r => {
+  memDb.prepare('INSERT OR REPLACE INTO api_keys (id, name, key_hash, scope, namespaces, rate_limit, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(r.id, r.name, r.key_value, r.scope, r.namespaces, r.rate_limit, r.expires_at);
+  console.log('Synced:', r.name);
+});
+adminDb.close(); memDb.close();
+"
+```
+
+Falls `SQLITE_READONLY`-Fehler: Container neu erstellen (nicht nur restart):
+
+```bash
+docker compose up -d --force-recreate admin-api
+```
+
+### Recall gibt 0 Episoden zurück obwohl welche gespeichert sind
+
+Ursache: `SIMILARITY_THRESHOLD` in der `.env` auf dem Server ist zu hoch (Default war 0.75).
+Für das Embedding-Modell `nomic-embed-text` ist 0.35 optimal:
+
+```bash
+# Auf dem Server prüfen und anpassen
+grep SIMILARITY /opt/MemoryX/.env
+sed -i 's/SIMILARITY_THRESHOLD=0.75/SIMILARITY_THRESHOLD=0.35/' /opt/MemoryX/.env
+
+# WICHTIG: "docker compose up -d" statt "restart" — restart liest .env NICHT neu ein!
+docker compose up -d memory-service
+```
+
+### Das Admin-Passwort funktioniert nicht
+
+Das Admin-Passwort wird als Bcrypt-Hash in der `.env` gespeichert. Vorgehen:
+
+```bash
+# Neuen Hash generieren
+docker run --rm caddy:2-alpine caddy hash-password --plaintext 'MeinPasswort'
+# Ausgabe z.B.: $2a$14$...
+
+# In .env eintragen (mit einfachen Anführungszeichen — wichtig für Sonderzeichen!)
+ADMIN_PASSWORD_HASH='$2a$14$...'
+
+# Stack neu starten
+docker compose restart caddy
+```
+
+> **Wichtig:** Einfache Anführungszeichen `'...'` in der `.env` verwenden.
+> Doppelte Anführungszeichen können `$`-Zeichen im Hash falsch interpretieren.
 
 ### Der Nutzer möchte mehrere Projekte verbinden
 
@@ -276,6 +360,124 @@ Zeige folgende Konfiguration:
     }
   }
 }
+```
+
+### Der Stack soll aktualisiert werden
+
+```bash
+cd /opt/MemoryX
+./scripts/update.sh
+```
+
+Das Skript erkennt automatisch, welche Services geändert wurden, und baut nur diese neu.
+Bei lokalen Änderungen zuerst stashen:
+
+```bash
+git stash && ./scripts/update.sh
+```
+
+---
+
+## Admin-Dashboard — Seiten-Übersicht
+
+Das Dashboard ist erreichbar unter `https://memory.local/admin/` (mit Trailing-Slash).
+
+| Seite | URL | Inhalt |
+| ----- | --- | ------ |
+| Übersicht | `/admin/` | Statistiken, Systemstatus, Quick-Actions |
+| API-Keys | `/admin/keys.html` | Keys erstellen, anzeigen, löschen |
+| Episoden | `/admin/episodes.html` | Memory-Einträge durchsuchen und löschen |
+| Regeln | `/admin/rules.html` | Destillierte Regeln verwalten |
+| Health | `/admin/health.html` | Detaillierter Systemstatus aller Services |
+| System | `/admin/system.html` | Logs, Backup, GC, Destillierung |
+
+> Hinweis: Die URL muss mit `/admin/` (Trailing-Slash) aufgerufen werden.
+> `/admin` ohne Slash kann zu leeren Seiten führen.
+
+---
+
+## Deaktivierung und Deinstallation
+
+### Nur für ein Projekt deaktivieren (MCP-Verbindung trennen)
+
+Entferne den `memory`-Eintrag aus der `.mcp.json` im Projektordner:
+
+```json
+// Vorher:
+{
+  "mcpServers": {
+    "memory": { ... }
+  }
+}
+
+// Nachher (Eintrag entfernt):
+{
+  "mcpServers": {}
+}
+```
+
+Alternativ: die gesamte `.mcp.json` löschen, falls keine anderen MCP-Server konfiguriert sind.
+
+Danach VS Code neu laden (`Ctrl+Shift+P → "Reload Window"`).
+
+Die gespeicherten Episoden und Regeln bleiben auf dem Server erhalten.
+
+---
+
+### API-Key für ein Projekt deaktivieren
+
+```text
+1. Öffne https://memory.local/admin/keys.html
+2. Klicke auf den Key, der deaktiviert werden soll
+3. Klicke "Löschen" — der Key ist sofort ungültig
+```
+
+Alle MCP-Verbindungen, die diesen Key verwenden, schlagen danach fehl.
+
+---
+
+### Memory-Daten eines Projekts löschen (Namespace bereinigen)
+
+```bash
+# Alle Episoden eines Namespace löschen
+curl -sk -X DELETE "https://memory.local/api/episodes?namespace=project:meinprojekt" \
+  -H "X-Admin-Key: <ADMIN_API_KEY>"
+
+# Alle Regeln eines Namespace löschen
+curl -sk -X DELETE "https://memory.local/api/rules?namespace=project:meinprojekt" \
+  -H "X-Admin-Key: <ADMIN_API_KEY>"
+```
+
+Alternativ über das Admin-Dashboard unter `/admin/episodes.html` und `/admin/rules.html`
+mit dem Namespace-Filter und der Löschen-Funktion.
+
+---
+
+### Vollständige Deinstallation des Servers
+
+```bash
+# 1. Stack stoppen und Container entfernen
+cd /opt/MemoryX
+docker compose down
+
+# 2. Alle Daten und Volumes löschen (UNWIDERRUFLICH)
+docker compose down -v
+
+# 3. Docker-Images entfernen (optional, gibt Speicher frei)
+docker rmi $(docker images | grep memory | awk '{print $3}')
+
+# 4. Projektverzeichnis löschen
+rm -rf /opt/MemoryX
+
+# 5. Hosts-Eintrag entfernen (Linux/macOS)
+sudo sed -i '/memory.local/d' /etc/hosts
+```
+
+> **Warnung:** `docker compose down -v` löscht alle gespeicherten Episoden, Regeln
+> und API-Keys unwiderruflich. Vorher ein Backup erstellen:
+
+```bash
+./scripts/backup.sh /tmp/memoryx-final-backup
 ```
 
 ---
@@ -328,5 +530,5 @@ Gibt zurück: `context` (formatierter Text), `episodeCount`, `ruleCount`, `token
 
 ---
 
-*MemoryX · AI-Installationsanleitung · v1.1 · 2026*
+*MemoryX · AI-Installationsanleitung · v1.3 · 2026-03-12*
 *Quelle: https://github.com/toasti1973/MemoryX*
