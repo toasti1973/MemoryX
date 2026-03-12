@@ -65,7 +65,7 @@ services:
           memory: ${MEM_LIMIT_SERVICE:-512m}
           cpus: '${CPU_LIMIT_SERVICE:-1.0}'
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3457/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3457/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -88,7 +88,7 @@ services:
           memory: ${MEM_LIMIT_OLLAMA:-2g}
           cpus: '${CPU_LIMIT_OLLAMA:-2.0}'
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/11434'"]
       interval: 30s
       timeout: 10s
       retries: 5
