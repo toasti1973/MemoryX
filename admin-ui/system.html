@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory System — System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
+    <a href="index.html">&#9632; Dashboard</a>
+    <a href="keys.html">&#128273; API-Keys</a>
+    <a href="episodes.html">&#128196; Episoden</a>
+    <a href="rules.html">&#9881; Regeln</a>
+    <a href="logs.html">&#128203; Logs</a>
+    <a href="system.html" class="active">&#9881; System</a>
+  </nav>
+  <main class="main">
+    <h1>System-Verwaltung</h1>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <div class="card">
+        <h2>Ressourcen</h2>
+        <div id="stats-container" style="display:grid;gap:12px">Lade...</div>
+      </div>
+
+      <div class="card">
+        <h2>Wartungs-Aktionen</h2>
+        <div style="display:grid;gap:12px">
+          <div>
+            <strong style="display:block;margin-bottom:4px">Backup erstellen</strong>
+            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">SQLite-Datenbank sichern</p>
+            <button class="btn btn-primary" onclick="runAction('backup')">&#128190; Backup jetzt</button>
+          </div>
+          <hr style="border-color:var(--border)">
+          <div>
+            <strong style="display:block;margin-bottom:4px">Garbage Collection</strong>
+            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">Schwache und doppelte Episoden entfernen</p>
+            <button class="btn btn-ghost" onclick="runAction('gc')">&#9880; GC ausführen</button>
+          </div>
+          <hr style="border-color:var(--border)">
+          <div>
+            <strong style="display:block;margin-bottom:4px">Verbindungstest</strong>
+            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px">Alle Services prüfen</p>
+            <button class="btn btn-ghost" onclick="checkHealth()">&#10003; Health-Check</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card" style="margin-top:0">
+      <h2>Service Status</h2>
+      <div id="health-grid" class="service-grid">Lade...</div>
+    </div>
+
+    <div id="result-area" style="display:none" class="card">
+      <h2>Ergebnis</h2>
+      <pre id="result-text" style="font-size:12px;color:var(--text-muted);white-space:pre-wrap"></pre>
+    </div>
+  </main>
+</div>
+
+<script src="api.js"></script>
+<script>
+async function load() {
+  try {
+    const stats = await api.stats();
+    const container = document.getElementById('stats-container');
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text-muted)">Episoden</span>
+        <strong>${stats.episodeCount ?? '—'}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text-muted)">Regeln (bestätigt)</span>
+        <strong>${stats.ruleCount ?? '—'}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text-muted)">Hit-Rate</span>
+        <strong>${stats.hitRate ? (stats.hitRate * 100).toFixed(1) + '%' : '—'}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text-muted)">Durchschn. Qualität</span>
+        <strong>${stats.avgScore ?? '—'}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text-muted)">DB-Grösse</span>
+        <strong>${stats.dbSizeMB ?? '—'} MB</strong>
+      </div>
+    `;
+  } catch (err) {
+    document.getElementById('stats-container').textContent = 'Fehler beim Laden';
+  }
+}
+
+async function checkHealth() {
+  try {
+    const health = await api.health();
+    const grid   = document.getElementById('health-grid');
+    const svcs   = health.services || {};
+    const entries = [
+      ['memory-service', svcs['memory-service'] || 'unknown'],
+      ['admin-api',      'ok'],
+    ];
+    grid.innerHTML = entries.map(([name, status]) => `
+      <div class="service-card">
+        <span class="dot ${status === 'ok' ? 'dot-ok' : 'dot-error'}"></span>
+        <div>
+          <div class="service-name">${name}</div>
+          <div class="service-status">${status === 'ok' ? 'Online' : 'Offline / Fehler'}</div>
+        </div>
+      </div>
+    `).join('');
+    showResult(JSON.stringify(health, null, 2));
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+  }
+}
+
+async function runAction(action) {
+  try {
+    let result;
+    if (action === 'backup') result = await api.backup();
+    else if (action === 'gc') result = await api.gc();
+    showToast(action + ' erfolgreich');
+    showResult(JSON.stringify(result, null, 2));
+    load();
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+    showResult('Fehler: ' + err.message);
+  }
+}
+
+function showResult(text) {
+  document.getElementById('result-area').style.display = 'block';
+  document.getElementById('result-text').textContent = text;
+}
+
+load();
+checkHealth();
+</script>
+</body>
+</html>

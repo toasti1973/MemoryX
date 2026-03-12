@@ -1,0 +1,195 @@
+version: '3.9'
+
+networks:
+  memory-net:
+    driver: bridge
+
+volumes:
+  memory-data:
+  ollama-models:
+  caddy-certs:
+  admin-data:
+  backup-data:
+
+services:
+
+  # ── Reverse Proxy ─────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: memory-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-certs:/data
+      - ./admin-ui:/srv/admin-ui:ro
+    environment:
+      - ADMIN_USER=${ADMIN_USER}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
+    networks:
+      - memory-net
+    depends_on:
+      - memory-service
+      - admin-api
+      - admin-ui
+
+  # ── Kern MCP-Server ───────────────────────────────────────────────────────
+  memory-service:
+    build:
+      context: ./memory-service
+      dockerfile: Dockerfile
+    container_name: memory-service
+    restart: always
+    expose:
+      - "3457"
+    volumes:
+      - memory-data:/data
+      - ./config/memory-service:/app/config:ro
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/data/memory.db
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-nomic-embed-text}
+      - MAX_RECALL_TOKENS=${MAX_RECALL_TOKENS:-450}
+      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.75}
+      - MAX_RESULTS_L2=${MAX_RESULTS_L2:-3}
+      - MAX_RULES_L3=${MAX_RULES_L3:-5}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+    networks:
+      - memory-net
+    depends_on:
+      - ollama
+    deploy:
+      resources:
+        limits:
+          memory: ${MEM_LIMIT_SERVICE:-512m}
+          cpus: '${CPU_LIMIT_SERVICE:-1.0}'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3457/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Lokales Embedding ─────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: memory-ollama
+    restart: always
+    expose:
+      - "11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - memory-net
+    deploy:
+      resources:
+        limits:
+          memory: ${MEM_LIMIT_OLLAMA:-2g}
+          cpus: '${CPU_LIMIT_OLLAMA:-2.0}'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── Admin REST-API ────────────────────────────────────────────────────────
+  admin-api:
+    build:
+      context: ./admin-api
+      dockerfile: Dockerfile
+    container_name: memory-admin-api
+    restart: always
+    expose:
+      - "3459"
+    volumes:
+      - admin-data:/data
+      - memory-data:/memory:ro
+      - backup-data:/backups
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NODE_ENV=production
+      - ADMIN_DB_PATH=/data/admin.db
+      - MEMORY_DB_PATH=/memory/memory.db
+      - BACKUP_PATH=/backups
+      - MEMORY_SERVICE_URL=http://memory-service:3457
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - memory-net
+    deploy:
+      resources:
+        limits:
+          memory: ${MEM_LIMIT_ADMIN:-256m}
+
+  # ── Admin Web-UI ──────────────────────────────────────────────────────────
+  admin-ui:
+    image: caddy:2-alpine
+    container_name: memory-admin-ui
+    restart: always
+    expose:
+      - "8080"
+    volumes:
+      - ./admin-ui:/usr/share/caddy:ro
+      - ./config/admin-ui/Caddyfile.ui:/etc/caddy/Caddyfile:ro
+    networks:
+      - memory-net
+
+  # ── Scheduler / Cron-Jobs ─────────────────────────────────────────────────
+  scheduler:
+    build:
+      context: ./scheduler
+      dockerfile: Dockerfile
+    container_name: memory-scheduler
+    restart: always
+    volumes:
+      - memory-data:/data
+      - backup-data:/backups
+      - ./config/scheduler:/app/config:ro
+    environment:
+      - MEMORY_SERVICE_URL=http://memory-service:3457
+      - ADMIN_API_URL=http://admin-api:3459
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - GC_SCHEDULE=${GC_SCHEDULE:-0 2 * * *}
+      - DISTILL_SCHEDULE=${DISTILL_SCHEDULE:-30 2 * * *}
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 3 * * *}
+      - DECAY_SCHEDULE=${DECAY_SCHEDULE:-0 4 * * *}
+      - RULE_MIN_EPISODES=${RULE_MIN_EPISODES:-3}
+      - DECAY_FACTOR=${DECAY_FACTOR:-0.002}
+      - MAX_DB_SIZE_MB=${MAX_DB_SIZE_MB:-500}
+      - BACKUP_PATH=/backups
+      - DB_PATH=/data/memory.db
+    networks:
+      - memory-net
+    depends_on:
+      - memory-service
+      - admin-api
+
+  # ── Business-OS Adapter (optional, via Profile aktivieren) ────────────────
+  memory-adapter:
+    build:
+      context: ./memory-adapter
+      dockerfile: Dockerfile
+    container_name: memory-adapter
+    restart: always
+    volumes:
+      - ./config/adapter:/app/config:ro
+    environment:
+      - MEMORY_SERVICE_URL=http://memory-service:3457
+      - MEMORY_API_KEY=${ADAPTER_MEMORY_API_KEY}
+      - ADAPTER_SOURCE=${ADAPTER_SOURCE:-nextcloud}
+      - ADAPTER_API_URL=${ADAPTER_API_URL}
+      - ADAPTER_API_KEY=${ADAPTER_API_KEY}
+      - ADAPTER_SYNC_SCHEDULE=${ADAPTER_SYNC_SCHEDULE:-0 */6 * * *}
+      - ADAPTER_NAMESPACES=${ADAPTER_NAMESPACES:-business:projects}
+      - ADAPTER_FILTER_FIELDS=${ADAPTER_FILTER_FIELDS:-}
+      - ADAPTER_MAX_AGE_DAYS=${ADAPTER_MAX_AGE_DAYS:-90}
+    networks:
+      - memory-net
+    profiles:
+      - business-os
+    depends_on:
+      - memory-service

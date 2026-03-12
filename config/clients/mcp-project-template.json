@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "memory-project": {
+      "url": "https://memory.local/mcp",
+      "apiKey": "HIER_PROJEKT_API_KEY",
+      "namespace": "project:PROJEKTNAME",
+      "sharedNamespaces": ["global"],
+      "autoRecall": true,
+      "autoStore": true
+    }
+  }
+}

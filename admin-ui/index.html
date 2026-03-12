@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory System — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
+    <a href="index.html" class="active">&#9632; Dashboard</a>
+    <a href="keys.html">&#128273; API-Keys</a>
+    <a href="episodes.html">&#128196; Episoden</a>
+    <a href="rules.html">&#9881; Regeln</a>
+    <a href="logs.html">&#128203; Logs</a>
+    <a href="system.html">&#9881; System</a>
+  </nav>
+  <main class="main">
+    <h1>Dashboard</h1>
+
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi"><div class="kpi-value" id="kpi-episodes">—</div><div class="kpi-label">Episoden</div></div>
+      <div class="kpi"><div class="kpi-value" id="kpi-rules">—</div><div class="kpi-label">Regeln</div></div>
+      <div class="kpi"><div class="kpi-value" id="kpi-hitrate">—</div><div class="kpi-label">Hit-Rate</div></div>
+      <div class="kpi"><div class="kpi-value" id="kpi-dbsize">—</div><div class="kpi-label">DB-Grösse</div></div>
+      <div class="kpi"><div class="kpi-value" id="kpi-avgscore">—</div><div class="kpi-label">Ø Qualität</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Service Status</h2>
+      <div class="service-grid" id="service-grid">
+        <div class="service-card">
+          <span class="dot dot-warn" id="dot-memory"></span>
+          <div><div class="service-name">memory-service</div><div class="service-status" id="status-memory">Prüfe...</div></div>
+        </div>
+        <div class="service-card">
+          <span class="dot dot-warn" id="dot-ollama"></span>
+          <div><div class="service-name">ollama</div><div class="service-status" id="status-ollama">Prüfe...</div></div>
+        </div>
+        <div class="service-card">
+          <span class="dot dot-warn" id="dot-admin-api"></span>
+          <div><div class="service-name">admin-api</div><div class="service-status" id="status-admin-api">Prüfe...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Letzte Aktivität</h2>
+      <table>
+        <thead>
+          <tr><th>Zeit</th><th>Endpunkt</th><th>Client</th><th>Namespace</th><th>Latenz</th><th>Status</th></tr>
+        </thead>
+        <tbody id="log-table">
+          <tr><td colspan="6" style="color:var(--text-muted);text-align:center">Lade...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="api.js"></script>
+<script>
+async function load() {
+  try {
+    const [stats, health, logs] = await Promise.all([api.stats(), api.health(), api.logs({ lines: 10 })]);
+
+    document.getElementById('kpi-episodes').textContent = stats.episodeCount ?? '—';
+    document.getElementById('kpi-rules').textContent    = stats.ruleCount ?? '—';
+    document.getElementById('kpi-hitrate').textContent  = stats.hitRate ? (stats.hitRate * 100).toFixed(0) + '%' : '—';
+    document.getElementById('kpi-dbsize').textContent   = stats.dbSizeMB ? stats.dbSizeMB + ' MB' : '—';
+    document.getElementById('kpi-avgscore').textContent = stats.avgScore ?? '—';
+
+    const svcs = health.services || {};
+    setStatus('memory', svcs['memory-service']);
+    setStatus('admin-api', 'ok');
+
+    const tbody = document.getElementById('log-table');
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center">Keine Aktivität</td></tr>';
+    } else {
+      tbody.innerHTML = logs.map(l => `
+        <tr>
+          <td>${formatDate(l.created_at)}</td>
+          <td><code>${l.endpoint}</code></td>
+          <td>${l.key_name || l.key_id || '—'}</td>
+          <td>${l.namespace || '—'}</td>
+          <td>${l.latency_ms ?? '—'} ms</td>
+          <td><span class="badge ${l.status < 400 ? 'badge-green' : 'badge-red'}">${l.status}</span></td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus('admin-api', 'error');
+  }
+}
+
+function setStatus(name, status) {
+  const dot = document.getElementById('dot-' + name);
+  const label = document.getElementById('status-' + name);
+  if (status === 'ok') {
+    dot.className = 'dot dot-ok';
+    if (label) label.textContent = 'Online';
+  } else if (status === 'error' || status === 'offline') {
+    dot.className = 'dot dot-error';
+    if (label) label.textContent = 'Offline';
+  } else {
+    dot.className = 'dot dot-warn';
+    if (label) label.textContent = 'Unbekannt';
+  }
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "claude.mcpServers": {
+    "memory-global": {
+      "url": "https://memory.local/mcp",
+      "apiKey": "HIER_DEINEN_API_KEY_EINTRAGEN",
+      "namespace": "global",
+      "autoRecall": true,
+      "autoStore": true
+    }
+  }
+}

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory System — API-Keys</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
+    <a href="index.html">&#9632; Dashboard</a>
+    <a href="keys.html" class="active">&#128273; API-Keys</a>
+    <a href="episodes.html">&#128196; Episoden</a>
+    <a href="rules.html">&#9881; Regeln</a>
+    <a href="logs.html">&#128203; Logs</a>
+    <a href="system.html">&#9881; System</a>
+  </nav>
+  <main class="main">
+    <h1>API-Keys</h1>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="showCreateModal()">+ Neuer Key</button>
+      <span class="toolbar-spacer"></span>
+      <button class="btn btn-ghost" onclick="load()">&#8635; Aktualisieren</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Scope</th>
+            <th>Namespaces</th>
+            <th>Rate-Limit</th>
+            <th>Zuletzt genutzt</th>
+            <th>Erstellt</th>
+            <th>Status</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="keys-table">
+          <tr><td colspan="8" style="color:var(--text-muted);text-align:center">Lade...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Erstell-Modal -->
+<div id="create-modal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="modal-title">Neuen API-Key erstellen</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name (z.B. 'vscode-laptop')</label>
+        <input id="key-name" type="text" placeholder="vscode-laptop-thorsten">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Scope</label>
+        <select id="key-scope">
+          <option value="recall+store">recall+store (Standard)</option>
+          <option value="recall-only">recall only</option>
+          <option value="store-only">store only</option>
+          <option value="admin">admin (alle Rechte)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Rate-Limit (Req/Min)</label>
+        <input id="key-ratelimit" type="number" value="60" min="1" max="10000">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Namespaces (* = alle)</label>
+        <input id="key-namespaces" type="text" value="*" placeholder="global,project:myapp">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="createKey()">Key erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schlüssel-Anzeige Modal -->
+<div id="key-display-modal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="modal-title">API-Key erstellt</div>
+    <div class="alert alert-info">Dieser Key wird nur einmal angezeigt. Jetzt kopieren und sicher speichern!</div>
+    <div class="key-display" id="new-key-value"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="copyToClipboard(document.getElementById('new-key-value').textContent)">&#128203; Kopieren</button>
+      <button class="btn btn-primary" onclick="closeKeyDisplayModal()">Verstanden</button>
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+async function load() {
+  try {
+    const keys = await api.keys.list();
+    const tbody = document.getElementById('keys-table');
+    if (keys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--text-muted);text-align:center">Keine Keys vorhanden</td></tr>';
+      return;
+    }
+    tbody.innerHTML = keys.map(k => `
+      <tr>
+        <td><strong>${k.name}</strong></td>
+        <td><span class="badge badge-blue">${k.scope}</span></td>
+        <td><code>${k.namespaces}</code></td>
+        <td>${k.rate_limit}/min</td>
+        <td>${formatDate(k.last_used)}</td>
+        <td>${formatDate(k.created_at)}</td>
+        <td><span class="badge ${k.active ? 'badge-green' : 'badge-red'}">${k.active ? 'Aktiv' : 'Widerrufen'}</span></td>
+        <td>
+          ${k.active ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${k.id}', '${k.name}')">Widerrufen</button>` : '—'}
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    showToast('Fehler beim Laden: ' + err.message, 'error');
+  }
+}
+
+async function createKey() {
+  const name       = document.getElementById('key-name').value.trim();
+  const scope      = document.getElementById('key-scope').value;
+  const namespaces = document.getElementById('key-namespaces').value.trim();
+  const rate_limit = parseInt(document.getElementById('key-ratelimit').value);
+  if (!name) return showToast('Name ist erforderlich', 'error');
+  try {
+    const result = await api.keys.create({ name, scope, namespaces, rate_limit });
+    document.getElementById('create-modal').style.display = 'none';
+    document.getElementById('new-key-value').textContent = result.key;
+    document.getElementById('key-display-modal').style.display = 'flex';
+    load();
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+  }
+}
+
+async function revokeKey(id, name) {
+  if (!confirm(`Key "${name}" wirklich widerrufen?`)) return;
+  try {
+    await api.keys.revoke(id);
+    showToast('Key widerrufen');
+    load();
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+  }
+}
+
+function showCreateModal() {
+  document.getElementById('key-name').value = '';
+  document.getElementById('create-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('key-name').focus(), 100);
+}
+
+function closeModal() { document.getElementById('create-modal').style.display = 'none'; }
+function closeKeyDisplayModal() { document.getElementById('key-display-modal').style.display = 'none'; }
+
+load();
+</script>
+</body>
+</html>

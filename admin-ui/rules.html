@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory System — Regeln</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
+    <a href="index.html">&#9632; Dashboard</a>
+    <a href="keys.html">&#128273; API-Keys</a>
+    <a href="episodes.html">&#128196; Episoden</a>
+    <a href="rules.html" class="active">&#9881; Regeln</a>
+    <a href="logs.html">&#128203; Logs</a>
+    <a href="system.html">&#9881; System</a>
+  </nav>
+  <main class="main">
+    <h1>Regeln (L3 — Prozedurale Schicht)</h1>
+    <p style="color:var(--text-muted);margin-bottom:20px">Regeln werden automatisch aus Episoden destilliert und müssen manuell bestätigt werden, bevor sie beim Recall verwendet werden.</p>
+
+    <div class="toolbar">
+      <button class="btn btn-ghost" onclick="load()">&#8635; Aktualisieren</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Kategorie</th>
+            <th>Regel</th>
+            <th>Namespace</th>
+            <th>Konfidenz</th>
+            <th>Angewendet</th>
+            <th>Status</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="rules-table">
+          <tr><td colspan="7" style="color:var(--text-muted);text-align:center">Lade...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="api.js"></script>
+<script>
+async function load() {
+  try {
+    const rules = await api.rules.list();
+    const tbody = document.getElementById('rules-table');
+    if (rules.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);text-align:center">Noch keine Regeln vorhanden</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rules.map(r => `
+      <tr>
+        <td><strong>${r.category}</strong></td>
+        <td style="max-width:320px">${r.rule_text}</td>
+        <td><code>${r.namespace}</code></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:60px;height:6px;background:#2e3244;border-radius:3px">
+              <div style="width:${Math.round(r.confidence*100)}%;height:100%;background:#6366f1;border-radius:3px"></div>
+            </div>
+            <span style="font-size:11px;color:var(--text-muted)">${Math.round(r.confidence*100)}%</span>
+          </div>
+        </td>
+        <td>${r.apply_count}x</td>
+        <td><span class="badge ${r.confirmed ? 'badge-green' : 'badge-yellow'}">${r.confirmed ? 'Bestätigt' : 'Ausstehend'}</span></td>
+        <td style="display:flex;gap:6px">
+          ${!r.confirmed ? `<button class="btn btn-primary btn-sm" onclick="confirmRule('${r.id}')">&#10003; Bestätigen</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteRule('${r.id}')">&#128465;</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+  }
+}
+
+async function confirmRule(id) {
+  try {
+    await api.rules.confirm(id);
+    showToast('Regel bestätigt');
+    load();
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+  }
+}
+
+async function deleteRule(id) {
+  if (!confirm('Regel wirklich löschen?')) return;
+  try {
+    await api.rules.delete(id);
+    showToast('Regel gelöscht');
+    load();
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+  }
+}
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{
+    # Lokale CA für .local Domains
+    local_certs
+    log {
+        level INFO
+    }
+}
+
+{$MEMORY_HOST:memory.local} {
+
+    # ── MCP-Endpunkt ─────────────────────────────────────────────────────
+    handle /mcp* {
+        reverse_proxy memory-service:3457 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # ── Admin REST-API ────────────────────────────────────────────────────
+    handle /api* {
+        basicauth {
+            {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
+        }
+        reverse_proxy admin-api:3459
+    }
+
+    # ── Admin Web-Dashboard ───────────────────────────────────────────────
+    handle /admin* {
+        basicauth {
+            {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
+        }
+        uri strip_prefix /admin
+        reverse_proxy admin-ui:8080
+    }
+
+    # ── Health-Check (kein Auth) ──────────────────────────────────────────
+    handle /health {
+        reverse_proxy memory-service:3457
+    }
+
+    # ── Root Redirect zu Admin ────────────────────────────────────────────
+    handle / {
+        redir /admin/ 302
+    }
+
+    tls internal
+}

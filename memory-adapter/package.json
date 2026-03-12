@@ -1,0 +1,12 @@
+{
+  "name": "memory-adapter",
+  "version": "1.0.0",
+  "description": "Business-OS Bridge für Memory System",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3"
+  }
+}

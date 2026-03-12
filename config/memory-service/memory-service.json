@@ -1,0 +1,46 @@
+{
+  "namespaces": {
+    "global": {
+      "description": "Globales Wissen, gültig für alle Agenten",
+      "maxEpisodes": 500,
+      "maxRules": 50,
+      "retentionDays": 365
+    },
+    "project": {
+      "description": "Projekt-spezifisches Wissen",
+      "maxEpisodes": 200,
+      "maxRules": 30,
+      "retentionDays": 180
+    },
+    "desktop": {
+      "description": "Claude Desktop App Namespace",
+      "maxEpisodes": 200,
+      "maxRules": 20,
+      "retentionDays": 90
+    },
+    "cli": {
+      "description": "Claude Code CLI Namespace",
+      "maxEpisodes": 200,
+      "maxRules": 20,
+      "retentionDays": 90
+    },
+    "business": {
+      "description": "Business-OS Daten",
+      "maxEpisodes": 1000,
+      "maxRules": 100,
+      "retentionDays": 90
+    }
+  },
+  "tokenBudget": {
+    "maxTotal": 450,
+    "l1Rules": 150,
+    "l2Episodes": 250,
+    "l3Rules": 150,
+    "overhead": 50
+  },
+  "scoring": {
+    "recencyWeight": 0.3,
+    "qualityWeight": 0.4,
+    "similarityWeight": 0.3
+  }
+}

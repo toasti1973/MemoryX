@@ -1,0 +1,77 @@
+// Zentrales API-Client Modul für Admin-UI
+// Alle Calls gehen gegen die admin-api via Caddy (/api/*)
+
+const API_BASE = '/api';
+
+// Admin-Key wird aus localStorage geholt (gesetzt beim ersten Aufruf)
+function getAdminKey() {
+  return localStorage.getItem('admin_key') || '';
+}
+
+async function apiFetch(path, options = {}) {
+  const res = await fetch(API_BASE + path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Key': getAdminKey(),
+      ...(options.headers || {})
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+const api = {
+  health:   ()          => apiFetch('/health'),
+  stats:    ()          => apiFetch('/stats'),
+
+  keys: {
+    list:   ()          => apiFetch('/keys'),
+    create: (data)      => apiFetch('/keys', { method: 'POST', body: data }),
+    revoke: (id)        => apiFetch(`/keys/${id}`, { method: 'DELETE' }),
+  },
+
+  episodes: {
+    list:   (params)    => apiFetch('/episodes?' + new URLSearchParams(params)),
+    delete: (id)        => apiFetch(`/episodes/${id}`, { method: 'DELETE' }),
+  },
+
+  rules: {
+    list:    ()         => apiFetch('/rules'),
+    confirm: (id)       => apiFetch(`/rules/${id}/confirm`, { method: 'POST' }),
+    delete:  (id)       => apiFetch(`/rules/${id}`, { method: 'DELETE' }),
+  },
+
+  logs:     (params)    => apiFetch('/logs?' + new URLSearchParams(params)),
+  backup:   ()          => apiFetch('/backup', { method: 'POST' }),
+  gc:       ()          => apiFetch('/gc',     { method: 'POST' }),
+};
+
+function formatDate(unixTs) {
+  if (!unixTs) return '—';
+  return new Date(unixTs * 1000).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('In Zwischenablage kopiert');
+  });
+}
+
+function showToast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:24px;right:24px;background:${type==='error'?'#ef4444':'#22c55e'};color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}

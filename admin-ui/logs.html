@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory System — Logs</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="nav-logo">MemoryX <span>AI Memory System</span></div>
+    <a href="index.html">&#9632; Dashboard</a>
+    <a href="keys.html">&#128273; API-Keys</a>
+    <a href="episodes.html">&#128196; Episoden</a>
+    <a href="rules.html">&#9881; Regeln</a>
+    <a href="logs.html" class="active">&#128203; Logs</a>
+    <a href="system.html">&#9881; System</a>
+  </nav>
+  <main class="main">
+    <h1>Zugriffslogs</h1>
+
+    <div class="toolbar">
+      <select id="lines-select" style="width:auto">
+        <option value="50">Letzte 50</option>
+        <option value="100" selected>Letzte 100</option>
+        <option value="200">Letzte 200</option>
+        <option value="500">Letzte 500</option>
+      </select>
+      <button class="btn btn-primary" onclick="load()">Laden</button>
+      <span class="toolbar-spacer"></span>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()"> Auto-Refresh (10s)
+      </label>
+    </div>
+
+    <div class="card" style="padding:0">
+      <table>
+        <thead>
+          <tr>
+            <th style="padding-left:20px">Zeit</th>
+            <th>Endpunkt</th>
+            <th>Client</th>
+            <th>Namespace</th>
+            <th>Latenz</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="log-table">
+          <tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:20px">Klicke "Laden"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="api.js"></script>
+<script>
+let refreshInterval = null;
+
+async function load() {
+  const lines = document.getElementById('lines-select').value;
+  try {
+    const logs = await api.logs({ lines });
+    const tbody = document.getElementById('log-table');
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:20px">Keine Logs</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(l => {
+      const isError  = l.status >= 500;
+      const isWarn   = l.status >= 400 && l.status < 500;
+      const rowStyle = isError ? 'background:rgba(239,68,68,0.05)' : isWarn ? 'background:rgba(245,158,11,0.05)' : '';
+      return `<tr style="${rowStyle}">
+        <td style="padding-left:20px;white-space:nowrap">${formatDate(l.created_at)}</td>
+        <td><code>${l.endpoint}</code></td>
+        <td>${l.key_name || l.key_id || '—'}</td>
+        <td>${l.namespace || '—'}</td>
+        <td>${l.latency_ms != null ? l.latency_ms + ' ms' : '—'}</td>
+        <td><span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}">${l.status}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    showToast('Fehler: ' + err.message, 'error');
+  }
+}
+
+function toggleAutoRefresh() {
+  if (document.getElementById('auto-refresh').checked) {
+    refreshInterval = setInterval(load, 10000);
+  } else {
+    clearInterval(refreshInterval);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

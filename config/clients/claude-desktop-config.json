@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "memory-desktop": {
+      "url": "https://memory.local/mcp",
+      "apiKey": "HIER_DESKTOP_API_KEY",
+      "namespace": "desktop",
+      "sharedNamespaces": ["global"],
+      "autoRecall": true,
+      "autoStore": true
+    }
+  }
+}

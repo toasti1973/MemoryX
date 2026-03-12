@@ -1,0 +1,13 @@
+{
+  "name": "memory-scheduler",
+  "version": "1.0.0",
+  "description": "Scheduler für Memory System Hintergrundjobs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "node-cron": "^3.0.3"
+  }
+}
