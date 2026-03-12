@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <base href="/admin/">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MemoryX — Health</title>
+  <link rel="stylesheet" href="/admin/style.css?v=2">
+</head>
+<body>
+<div class="layout">
+
+  <nav>
+    <div class="nav-logo">
+      <div class="nav-logo-title">MemoryX</div>
+      <div class="nav-logo-sub">AI Memory System</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <a href="index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="keys.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="17" r="4"/><path d="m10.6 13.4 7-7"/><path d="m18 5 1 1"/><path d="m15 8 1 1"/></svg>
+        API-Keys
+      </a>
+      <a href="episodes.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Episoden
+      </a>
+      <a href="rules.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Regeln
+      </a>
+      <a href="logs.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Logs
+      </a>
+      <a href="system.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        System
+      </a>
+      <a href="health.html" class="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Health
+      </a>
+    </div>
+    <div class="nav-footer">
+      <div class="status-indicator">
+        <span class="pulse" id="nav-pulse" style="background:var(--warning)"></span>
+        <span id="nav-status" style="font-size:11px;color:var(--text-muted)">Verbinde...</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="page-header">
+      <h1>Health Status</h1>
+      <p id="last-check" style="color:var(--text-muted)">Prüfe Services...</p>
+    </div>
+
+    <!-- Gesamt-Status Banner -->
+    <div id="overall-banner" class="card" style="margin-bottom:24px;padding:20px 28px;display:flex;align-items:center;gap:16px">
+      <span id="overall-dot" class="dot dot-warn" style="width:14px;height:14px;flex-shrink:0"></span>
+      <div>
+        <div id="overall-title" style="font-size:16px;font-weight:600;color:var(--text)">Prüfe...</div>
+        <div id="overall-sub" style="font-size:13px;color:var(--text-muted);margin-top:2px">Warte auf Antwort</div>
+      </div>
+      <button class="btn btn-ghost" onclick="load()" style="margin-left:auto">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Aktualisieren
+      </button>
+    </div>
+
+    <!-- Service Cards -->
+    <div class="service-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:24px">
+
+      <div class="service-card" style="padding:24px 28px;flex-direction:column;align-items:flex-start;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px;width:100%">
+          <span class="dot dot-warn" id="dot-memory" style="width:12px;height:12px;flex-shrink:0"></span>
+          <div class="service-name" style="font-size:15px">memory-service</div>
+          <span class="badge badge-yellow" id="badge-memory" style="margin-left:auto">Prüfe...</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          Episoden-Store · Embedding · Recall
+        </div>
+        <div style="font-size:12px;color:var(--text-dim)" id="detail-memory">—</div>
+      </div>
+
+      <div class="service-card" style="padding:24px 28px;flex-direction:column;align-items:flex-start;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px;width:100%">
+          <span class="dot dot-warn" id="dot-ollama" style="width:12px;height:12px;flex-shrink:0"></span>
+          <div class="service-name" style="font-size:15px">ollama</div>
+          <span class="badge badge-yellow" id="badge-ollama" style="margin-left:auto">Prüfe...</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          LLM-Inference · nomic-embed-text
+        </div>
+        <div style="font-size:12px;color:var(--text-dim)" id="detail-ollama">—</div>
+      </div>
+
+      <div class="service-card" style="padding:24px 28px;flex-direction:column;align-items:flex-start;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px;width:100%">
+          <span class="dot dot-warn" id="dot-admin" style="width:12px;height:12px;flex-shrink:0"></span>
+          <div class="service-name" style="font-size:15px">admin-api</div>
+          <span class="badge badge-yellow" id="badge-admin" style="margin-left:auto">Prüfe...</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          REST-API · Auth · Admin-UI Backend
+        </div>
+        <div style="font-size:12px;color:var(--text-dim)" id="detail-admin">—</div>
+      </div>
+
+    </div>
+
+    <!-- Raw Response -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">API-Antwort</div>
+      </div>
+      <pre id="raw-response" class="result-pre">Lade...</pre>
+    </div>
+
+  </main>
+</div>
+
+<script src="/admin/api.js?v=2"></script>
+<script>
+async function load() {
+  try {
+    const health = await api.health();
+
+    // Nav
+    document.getElementById('nav-pulse').style.background = 'var(--success)';
+    document.getElementById('nav-status').textContent = 'Online';
+
+    // Timestamp
+    const ts = health.timestamp ? new Date(health.timestamp).toLocaleString('de-DE') : new Date().toLocaleString('de-DE');
+    document.getElementById('last-check').textContent = 'Letzte Prüfung: ' + ts;
+
+    // Gesamt-Banner
+    const allOk = health.status === 'ok';
+    const banner = document.getElementById('overall-banner');
+    banner.style.borderColor = allOk ? 'var(--success)' : 'var(--error)';
+    document.getElementById('overall-dot').className = 'dot ' + (allOk ? 'dot-ok' : 'dot-error');
+    document.getElementById('overall-dot').style.cssText = 'width:14px;height:14px;flex-shrink:0';
+    document.getElementById('overall-title').textContent = allOk ? 'Alle Services Online' : 'Ein oder mehrere Services offline';
+    document.getElementById('overall-sub').textContent   = allOk ? 'System läuft normal' : 'Bitte Services prüfen';
+
+    // Services
+    const svcs = health.services || {};
+    setCard('memory', svcs['memory-service'] || (allOk ? 'ok' : 'error'), 'Port 3457');
+    setCard('ollama',  allOk ? 'ok' : 'error', 'Port 11434');
+    setCard('admin',   'ok', 'Port 3459');
+
+    // Raw
+    document.getElementById('raw-response').textContent = JSON.stringify(health, null, 2);
+
+  } catch (err) {
+    document.getElementById('nav-pulse').style.background = 'var(--error)';
+    document.getElementById('nav-status').textContent = 'Fehler';
+    document.getElementById('overall-dot').className = 'dot dot-error';
+    document.getElementById('overall-dot').style.cssText = 'width:14px;height:14px;flex-shrink:0';
+    document.getElementById('overall-title').textContent = 'Verbindung fehlgeschlagen';
+    document.getElementById('overall-sub').textContent = err.message;
+    setCard('memory', 'error', '');
+    setCard('ollama',  'error', '');
+    setCard('admin',   'error', '');
+    document.getElementById('raw-response').textContent = 'Fehler: ' + err.message;
+  }
+}
+
+function setCard(name, status, detail) {
+  const dot   = document.getElementById('dot-' + name);
+  const badge = document.getElementById('badge-' + name);
+  const det   = document.getElementById('detail-' + name);
+  const ok    = status === 'ok';
+  dot.className = 'dot ' + (ok ? 'dot-ok' : 'dot-error');
+  dot.style.cssText = 'width:12px;height:12px;flex-shrink:0';
+  badge.className   = 'badge ' + (ok ? 'badge-green' : 'badge-red');
+  badge.textContent = ok ? 'Online' : 'Offline';
+  if (det && detail) det.textContent = detail;
+}
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>
