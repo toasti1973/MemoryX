@@ -7,7 +7,7 @@ const {
 } = require('./embedding');
 
 const MAX_RECALL_TOKENS  = parseInt(process.env.MAX_RECALL_TOKENS  || '450');
-const SIM_THRESHOLD      = parseFloat(process.env.SIMILARITY_THRESHOLD || '0.75');
+const SIM_THRESHOLD      = parseFloat(process.env.SIMILARITY_THRESHOLD || '0.35');
 const MAX_RESULTS_L2     = parseInt(process.env.MAX_RESULTS_L2 || '3');
 const MAX_RULES_L3       = parseInt(process.env.MAX_RULES_L3   || '5');
 
