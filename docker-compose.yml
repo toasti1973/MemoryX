@@ -23,9 +23,8 @@ services:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-certs:/data
       - ./admin-ui:/srv/admin-ui:ro
-    environment:
-      - ADMIN_USER=${ADMIN_USER}
-      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
+    env_file:
+      - .env
     networks:
       - memory-net
     depends_on:
