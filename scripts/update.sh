@@ -28,6 +28,10 @@ echo "$CHANGED" | grep -q "^admin-ui/"         && RESTART_UI=true
 echo "$CHANGED" | grep -q "^config/caddy/"     && RESTART_UI=true
 echo "$CHANGED" | grep -q "^config/admin-ui/"  && RESTART_UI=true
 
+# docker-compose.yml-Änderung → force-recreate aller laufenden Container
+RECREATE=false
+echo "$CHANGED" | grep -q "^docker-compose.yml" && RECREATE=true
+
 echo "[2/4] Geänderte Dateien:"
 if [ -z "$CHANGED" ]; then
     echo "  (keine Änderungen)"
@@ -48,8 +52,12 @@ else
 fi
 echo ""
 
+# docker-compose.yml geändert → force-recreate
+if [ "$RECREATE" = true ]; then
+    echo "[4/4] docker-compose.yml geändert — recreate alle Container..."
+    docker compose up -d --force-recreate
 # Admin-UI / Caddy neu starten wenn nötig
-if [ "$RESTART_UI" = true ]; then
+elif [ "$RESTART_UI" = true ]; then
     echo "[4/4] Starte admin-ui und caddy neu..."
     docker compose restart admin-ui caddy
 else
