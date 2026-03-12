@@ -5,6 +5,7 @@ const fs       = require('fs');
 const path     = require('path');
 
 const DB_PATH          = process.env.DB_PATH          || '/data/memory.db';
+const ADMIN_DB_PATH    = process.env.ADMIN_DB_PATH    || '/admin/admin.db';
 const BACKUP_PATH      = process.env.BACKUP_PATH      || '/backups';
 const ADMIN_API_URL    = process.env.ADMIN_API_URL    || 'http://admin-api:3459';
 const MEMORY_SVC_URL   = process.env.MEMORY_SERVICE_URL || 'http://memory-service:3457';
@@ -12,6 +13,7 @@ const ADMIN_API_KEY    = process.env.ADMIN_API_KEY    || '';
 const DECAY_FACTOR     = parseFloat(process.env.DECAY_FACTOR     || '0.002');
 const MAX_DB_SIZE_MB   = parseInt(process.env.MAX_DB_SIZE_MB     || '500');
 const RULE_MIN_EPS     = parseInt(process.env.RULE_MIN_EPISODES  || '3');
+const KEY_CLEANUP_DAYS = parseInt(process.env.KEY_CLEANUP_DAYS   || '7');
 
 function log(job, msg) {
   console.log(`[${new Date().toISOString()}] [${job}] ${msg}`);
@@ -148,6 +150,26 @@ function runDistillation() {
   }
 }
 
+// ─── Key-Cleanup (widerrufene Keys endgültig löschen) ────────────────
+function runKeyCleanup() {
+  log('key-cleanup', 'Starte Key-Cleanup...');
+  if (!fs.existsSync(ADMIN_DB_PATH)) {
+    log('key-cleanup', 'Admin-DB nicht gefunden, überspringe.');
+    return;
+  }
+  try {
+    const adminDb = new Database(ADMIN_DB_PATH);
+    const cutoff = Math.floor(Date.now() / 1000) - (KEY_CLEANUP_DAYS * 86400);
+    const deleted = adminDb.prepare(
+      'DELETE FROM api_keys WHERE active = 0 AND revoked_at IS NOT NULL AND revoked_at < ?'
+    ).run(cutoff);
+    adminDb.close();
+    log('key-cleanup', `${deleted.changes} widerrufene Keys gelöscht (älter als ${KEY_CLEANUP_DAYS} Tage)`);
+  } catch (err) {
+    log('key-cleanup', `Fehler: ${err.message}`);
+  }
+}
+
 // ─── Stündlicher Health-Report ─────────────────────────────────────────────
 async function runHealthReport() {
   try {
@@ -172,11 +194,12 @@ function safe(name, fn) {
   };
 }
 
-cron.schedule(GC_SCHEDULE,      safe('gc',       runGC),           { timezone: 'Europe/Berlin' });
-cron.schedule(DISTILL_SCHEDULE, safe('distill',  runDistillation), { timezone: 'Europe/Berlin' });
-cron.schedule(BACKUP_SCHEDULE,  safe('backup',   runBackup),       { timezone: 'Europe/Berlin' });
-cron.schedule(DECAY_SCHEDULE,   safe('decay',    runDecay),        { timezone: 'Europe/Berlin' });
-cron.schedule('0 * * * *',      safe('health',   runHealthReport), { timezone: 'Europe/Berlin' });
+cron.schedule(GC_SCHEDULE,      safe('gc',          runGC),           { timezone: 'Europe/Berlin' });
+cron.schedule(DISTILL_SCHEDULE, safe('distill',     runDistillation), { timezone: 'Europe/Berlin' });
+cron.schedule(BACKUP_SCHEDULE,  safe('backup',      runBackup),       { timezone: 'Europe/Berlin' });
+cron.schedule(DECAY_SCHEDULE,   safe('decay',       runDecay),        { timezone: 'Europe/Berlin' });
+cron.schedule('30 4 * * *',     safe('key-cleanup', runKeyCleanup),   { timezone: 'Europe/Berlin' });
+cron.schedule('0 * * * *',      safe('health',      runHealthReport), { timezone: 'Europe/Berlin' });
 
 // ─── Startup ──────────────────────────────────────────────────────────────
 log('startup', 'Memory Scheduler gestartet');

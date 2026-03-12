@@ -54,9 +54,12 @@ function getAdminDb() {
       last_used  INTEGER,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       created_by TEXT NOT NULL DEFAULT 'admin',
-      active     INTEGER NOT NULL DEFAULT 1
+      active     INTEGER NOT NULL DEFAULT 1,
+      revoked_at INTEGER
     );
   `);
+  // Migration: revoked_at-Spalte hinzufügen falls nicht vorhanden
+  try { db.exec('ALTER TABLE api_keys ADD COLUMN revoked_at INTEGER'); } catch {}
   return db;
 }
 
@@ -127,8 +130,12 @@ app.post('/api/keys', adminAuth, (req, res) => {
 
 app.delete('/api/keys/:id', adminAuth, (req, res) => {
   const db = getAdminDb();
-  db.prepare('UPDATE api_keys SET active = 0 WHERE id = ?').run(req.params.id);
+  db.prepare('UPDATE api_keys SET active = 0, revoked_at = unixepoch() WHERE id = ?').run(req.params.id);
   db.close();
+
+  // Widerruf in memory.db synchronisieren (Key sofort deaktivieren)
+  syncKeyRevocation(req.params.id);
+
   res.json({ revoked: true });
 });
 
@@ -249,6 +256,17 @@ function syncKeyToMemoryService(id, name, key, scope, namespaces, rateLimit, exp
     memDb.close();
   } catch (e) {
     console.warn('[admin-api] Key-Sync fehlgeschlagen:', e.message);
+  }
+}
+
+function syncKeyRevocation(id) {
+  try {
+    if (!fs.existsSync(MEMORY_DB_PATH)) return;
+    const memDb = new Database(MEMORY_DB_PATH);
+    memDb.prepare('DELETE FROM api_keys WHERE id = ?').run(id);
+    memDb.close();
+  } catch (e) {
+    console.warn('[admin-api] Key-Revocation-Sync fehlgeschlagen:', e.message);
   }
 }
 

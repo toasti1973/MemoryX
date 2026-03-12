@@ -159,12 +159,14 @@ services:
     restart: always
     volumes:
       - memory-data:/data
+      - admin-data:/admin
       - backup-data:/backups
       - ./config/scheduler:/app/config:ro
     environment:
       - MEMORY_SERVICE_URL=http://memory-service:3457
       - ADMIN_API_URL=http://admin-api:3459
       - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - ADMIN_DB_PATH=/admin/admin.db
       - GC_SCHEDULE=${GC_SCHEDULE:-0 2 * * *}
       - DISTILL_SCHEDULE=${DISTILL_SCHEDULE:-30 2 * * *}
       - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 3 * * *}
@@ -172,6 +174,7 @@ services:
       - RULE_MIN_EPISODES=${RULE_MIN_EPISODES:-3}
       - DECAY_FACTOR=${DECAY_FACTOR:-0.002}
       - MAX_DB_SIZE_MB=${MAX_DB_SIZE_MB:-500}
+      - KEY_CLEANUP_DAYS=${KEY_CLEANUP_DAYS:-7}
       - BACKUP_PATH=/backups
       - DB_PATH=/data/memory.db
     networks:
