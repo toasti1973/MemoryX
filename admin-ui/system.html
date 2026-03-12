@@ -167,8 +167,9 @@ async function loadStats() {
 async function checkHealth() {
   try {
     const health = await api.health();
-    setSvcStatus('memory',    health.db === 'ok' ? 'ok' : 'error');
-    setSvcStatus('ollama',    health.ollama === 'ok' ? 'ok' : 'error');
+    const svcs = health.services || {};
+    setSvcStatus('memory',    svcs['memory-service'] || (health.status === 'ok' ? 'ok' : 'error'));
+    setSvcStatus('ollama',    health.status === 'ok' ? 'ok' : 'error');
     setSvcStatus('admin-api', 'ok');
 
     // Update nav
