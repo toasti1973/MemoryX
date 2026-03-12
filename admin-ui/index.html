@@ -171,9 +171,8 @@ async function load() {
     document.getElementById('kpi-dbsize').textContent   = stats.dbSizeMB != null ? stats.dbSizeMB + ' MB' : '—';
     document.getElementById('kpi-avgscore').textContent = stats.avgScore ?? '—';
 
-    const svcs = health.services || {};
-    setStatus('memory',    svcs['memory-service']);
-    setStatus('ollama',    svcs['ollama']);
+    setStatus('memory',    health.db === 'ok' ? 'ok' : 'error');
+    setStatus('ollama',    health.ollama === 'ok' ? 'ok' : 'error');
     setStatus('admin-api', 'ok');
 
     // Nav pulse
