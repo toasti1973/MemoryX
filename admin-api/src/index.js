@@ -1,9 +1,10 @@
 'use strict';
-const express = require('express');
+const express  = require('express');
+const crypto   = require('crypto');
 const Database = require('better-sqlite3');
 const { v4: uuidv4 } = require('uuid');
-const fs    = require('fs');
-const path  = require('path');
+const fs   = require('fs');
+const path = require('path');
 
 const app  = express();
 const PORT = parseInt(process.env.PORT || '3459');
@@ -27,10 +28,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Admin-Auth Middleware
+// Admin-Auth Middleware (timing-safe comparison)
 function adminAuth(req, res, next) {
   const key = req.headers['x-admin-key'] || req.query.key;
-  if (key !== ADMIN_API_KEY) return res.status(401).json({ error: 'Unauthorized' });
+  if (!key || typeof key !== 'string') return res.status(401).json({ error: 'Unauthorized' });
+  const keyBuf    = Buffer.from(key);
+  const adminBuf  = Buffer.from(ADMIN_API_KEY);
+  if (keyBuf.length !== adminBuf.length || !crypto.timingSafeEqual(keyBuf, adminBuf)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   next();
 }
 
@@ -64,7 +70,7 @@ function getAdminDb() {
 }
 
 // ─── /api/health ─────────────────────────────────────────────────────────
-app.get('/api/health', adminAuth, async (req, res) => {
+app.get('/api/health', adminAuth, async (_req, res) => {
   const services = {};
   try {
     const r = await fetch(`${MEMORY_SVC_URL}/health`, { signal: AbortSignal.timeout(5000) });
@@ -74,7 +80,7 @@ app.get('/api/health', adminAuth, async (req, res) => {
 });
 
 // ─── /api/stats ──────────────────────────────────────────────────────────
-app.get('/api/stats', adminAuth, async (req, res) => {
+app.get('/api/stats', adminAuth, async (_req, res) => {
   let memStats = {};
   try {
     const r = await fetch(`${MEMORY_SVC_URL}/internal/stats`, {
@@ -91,14 +97,17 @@ app.get('/api/stats', adminAuth, async (req, res) => {
 });
 
 // ─── /api/keys ───────────────────────────────────────────────────────────
-app.get('/api/keys', adminAuth, (req, res) => {
+app.get('/api/keys', adminAuth, (_req, res) => {
   const db = getAdminDb();
-  const keys = db.prepare('SELECT id, name, scope, namespaces, rate_limit, expires_at, last_used, created_at, created_by, active FROM api_keys ORDER BY created_at DESC').all();
-  db.close();
-  res.json(keys);
+  try {
+    const keys = db.prepare('SELECT id, name, scope, namespaces, rate_limit, expires_at, last_used, created_at, created_by, active FROM api_keys ORDER BY created_at DESC').all();
+    res.json(keys);
+  } finally {
+    db.close();
+  }
 });
 
-const VALID_SCOPES = new Set(['recall', 'store', 'recall+store', 'recall-only', 'store-only']);
+const VALID_SCOPES = new Set(['recall', 'store', 'recall+store', 'admin']);
 
 app.post('/api/keys', adminAuth, (req, res) => {
   const { name, scope = 'recall+store', namespaces = '*', rate_limit = 60, expires_at } = req.body;
@@ -116,26 +125,27 @@ app.post('/api/keys', adminAuth, (req, res) => {
   const key = 'mc-' + uuidv4().replace(/-/g, '').substring(0, 24);
 
   const db = getAdminDb();
-  db.prepare(`
-    INSERT INTO api_keys (id, name, key_value, scope, namespaces, rate_limit, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, key, scope, namespaces, rl, expires_at || null);
+  try {
+    db.prepare(`
+      INSERT INTO api_keys (id, name, key_value, scope, namespaces, rate_limit, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, name, key, scope, namespaces, rl, expires_at || null);
+  } finally {
+    db.close();
+  }
 
-  // Sync in memory-service DB
   syncKeyToMemoryService(id, name, key, scope, namespaces, rl, expires_at);
-
-  db.close();
   res.status(201).json({ id, name, key, scope, namespaces, rate_limit });
 });
 
 app.delete('/api/keys/:id', adminAuth, (req, res) => {
   const db = getAdminDb();
-  db.prepare('UPDATE api_keys SET active = 0, revoked_at = unixepoch() WHERE id = ?').run(req.params.id);
-  db.close();
-
-  // Widerruf in memory.db synchronisieren (Key sofort deaktivieren)
+  try {
+    db.prepare('UPDATE api_keys SET active = 0, revoked_at = unixepoch() WHERE id = ?').run(req.params.id);
+  } finally {
+    db.close();
+  }
   syncKeyRevocation(req.params.id);
-
   res.json({ revoked: true });
 });
 
@@ -143,78 +153,98 @@ app.delete('/api/keys/:id', adminAuth, (req, res) => {
 app.get('/api/episodes', adminAuth, (req, res) => {
   const memDb = getMemoryDb();
   if (!memDb) return res.json([]);
-  const { q, namespace, limit = 50 } = req.query;
-  let sql = 'SELECT id, agent_id, namespace, task_category, outcome, context_summary, quality_score, created_at FROM episodes';
-  const params = [];
-  const where = [];
-  if (q) { where.push('(context_summary LIKE ? OR learnings LIKE ? OR task_category LIKE ?)'); params.push(`%${q}%`, `%${q}%`, `%${q}%`); }
-  if (namespace) { where.push('namespace = ?'); params.push(namespace); }
-  if (where.length) sql += ' WHERE ' + where.join(' AND ');
-  sql += ' ORDER BY created_at DESC LIMIT ?';
-  params.push(parseInt(limit));
-  const rows = memDb.prepare(sql).all(...params);
-  memDb.close();
-  res.json(rows);
+  try {
+    const { q, namespace, limit = 50 } = req.query;
+    const parsedLimit = Math.max(1, Math.min(1000, parseInt(limit) || 50));
+    let sql = 'SELECT id, agent_id, namespace, task_category, outcome, context_summary, quality_score, created_at FROM episodes';
+    const params = [];
+    const where = [];
+    if (q) { where.push('(context_summary LIKE ? OR learnings LIKE ? OR task_category LIKE ?)'); params.push(`%${q}%`, `%${q}%`, `%${q}%`); }
+    if (namespace) { where.push('namespace = ?'); params.push(namespace); }
+    if (where.length) sql += ' WHERE ' + where.join(' AND ');
+    sql += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(parsedLimit);
+    const rows = memDb.prepare(sql).all(...params);
+    res.json(rows);
+  } finally {
+    memDb.close();
+  }
 });
 
 app.delete('/api/episodes/:id', adminAuth, (req, res) => {
-  if (!fs.existsSync(MEMORY_DB_PATH)) return res.status(404).json({ error: 'DB nicht gefunden' });
-  const memDb = new Database(MEMORY_DB_PATH);
-  memDb.prepare('DELETE FROM episodes WHERE id = ?').run(req.params.id);
-  memDb.close();
-  res.json({ deleted: true });
+  let memDb;
+  try {
+    memDb = new Database(MEMORY_DB_PATH);
+    memDb.prepare('DELETE FROM episodes WHERE id = ?').run(req.params.id);
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (memDb) memDb.close();
+  }
 });
 
 // ─── /api/rules ──────────────────────────────────────────────────────────
-app.get('/api/rules', adminAuth, (req, res) => {
+app.get('/api/rules', adminAuth, (_req, res) => {
   const memDb = getMemoryDb();
   if (!memDb) return res.json([]);
-  const rows = memDb.prepare('SELECT id, namespace, category, rule_text, confidence, apply_count, confirmed, created_at FROM rules ORDER BY confidence DESC').all();
-  memDb.close();
-  res.json(rows);
+  try {
+    const rows = memDb.prepare('SELECT id, namespace, category, rule_text, confidence, apply_count, confirmed, created_at FROM rules ORDER BY confidence DESC').all();
+    res.json(rows);
+  } finally {
+    memDb.close();
+  }
 });
 
 app.post('/api/rules/:id/confirm', adminAuth, (req, res) => {
-  if (!fs.existsSync(MEMORY_DB_PATH)) return res.status(404).json({ error: 'DB nicht gefunden' });
-  const memDb = new Database(MEMORY_DB_PATH);
-  memDb.prepare('UPDATE rules SET confirmed = 1, updated_at = unixepoch() WHERE id = ?').run(req.params.id);
-  memDb.close();
-  res.json({ confirmed: true });
+  let memDb;
+  try {
+    memDb = new Database(MEMORY_DB_PATH);
+    memDb.prepare('UPDATE rules SET confirmed = 1, updated_at = unixepoch() WHERE id = ?').run(req.params.id);
+    res.json({ confirmed: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (memDb) memDb.close();
+  }
 });
 
 app.delete('/api/rules/:id', adminAuth, (req, res) => {
-  if (!fs.existsSync(MEMORY_DB_PATH)) return res.status(404).json({ error: 'DB nicht gefunden' });
-  const memDb = new Database(MEMORY_DB_PATH);
-  memDb.prepare('DELETE FROM rules WHERE id = ?').run(req.params.id);
-  memDb.close();
-  res.json({ deleted: true });
+  let memDb;
+  try {
+    memDb = new Database(MEMORY_DB_PATH);
+    memDb.prepare('DELETE FROM rules WHERE id = ?').run(req.params.id);
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (memDb) memDb.close();
+  }
 });
 
 // ─── /api/backup ─────────────────────────────────────────────────────────
-app.post('/api/backup', adminAuth, (req, res) => {
+app.post('/api/backup', adminAuth, async (_req, res) => {
+  let memDb;
   try {
     if (!fs.existsSync(MEMORY_DB_PATH)) return res.status(404).json({ error: 'Memory DB nicht gefunden' });
     fs.mkdirSync(BACKUP_PATH, { recursive: true });
     const ts   = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
     const dest = path.join(BACKUP_PATH, `memory-${ts}.db`);
-    const memDb = new Database(MEMORY_DB_PATH, { readonly: true });
-    memDb.backup(dest).then(() => {
-      memDb.close();
-      res.json({ backup: dest, created: new Date().toISOString() });
-    }).catch(err => {
-      memDb.close();
-      res.status(500).json({ error: err.message });
-    });
+    memDb = new Database(MEMORY_DB_PATH, { readonly: true });
+    await memDb.backup(dest);
+    res.json({ backup: dest, created: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  } finally {
+    if (memDb) memDb.close();
   }
 });
 
 // ─── /api/gc ─────────────────────────────────────────────────────────────
-app.post('/api/gc', adminAuth, (req, res) => {
+app.post('/api/gc', adminAuth, (_req, res) => {
+  let memDb;
   try {
-    if (!fs.existsSync(MEMORY_DB_PATH)) return res.status(404).json({ error: 'DB nicht gefunden' });
-    const memDb = new Database(MEMORY_DB_PATH);
+    memDb = new Database(MEMORY_DB_PATH);
     const deleted = memDb.prepare('DELETE FROM episodes WHERE quality_score < 0.1').run();
     const dupes   = memDb.prepare(`
       DELETE FROM episodes WHERE id NOT IN (
@@ -222,51 +252,60 @@ app.post('/api/gc', adminAuth, (req, res) => {
       )
     `).run();
     memDb.pragma('VACUUM');
-    memDb.close();
     res.json({ deletedWeak: deleted.changes, deletedDupes: dupes.changes });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  } finally {
+    if (memDb) memDb.close();
   }
 });
 
 // ─── /api/logs ───────────────────────────────────────────────────────────
 app.get('/api/logs', adminAuth, (req, res) => {
   const { lines = 100 } = req.query;
+  const parsedLines = Math.max(1, Math.min(1000, parseInt(lines) || 100));
   const memDb = getMemoryDb();
   if (!memDb) return res.json([]);
-  const rows = memDb.prepare(`
-    SELECT a.id, a.key_id, k.name as key_name, a.endpoint, a.namespace, a.latency_ms, a.status, a.created_at
-    FROM access_log a
-    LEFT JOIN api_keys k ON a.key_id = k.id
-    ORDER BY a.created_at DESC LIMIT ?
-  `).all(parseInt(lines));
-  memDb.close();
-  res.json(rows);
+  try {
+    const rows = memDb.prepare(`
+      SELECT a.id, a.key_id, k.name as key_name, a.endpoint, a.namespace, a.latency_ms, a.status, a.created_at
+      FROM access_log a
+      LEFT JOIN api_keys k ON a.key_id = k.id
+      ORDER BY a.created_at DESC LIMIT ?
+    `).all(parsedLines);
+    res.json(rows);
+  } finally {
+    memDb.close();
+  }
 });
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────
 function syncKeyToMemoryService(id, name, key, scope, namespaces, rateLimit, expiresAt) {
+  let memDb;
   try {
     if (!fs.existsSync(MEMORY_DB_PATH)) return;
-    const memDb = new Database(MEMORY_DB_PATH);
+    memDb = new Database(MEMORY_DB_PATH);
     memDb.prepare(`
       INSERT OR REPLACE INTO api_keys (id, name, key_hash, scope, namespaces, rate_limit, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(id, name, key, scope, namespaces, rateLimit, expiresAt || null);
-    memDb.close();
   } catch (e) {
     console.warn('[admin-api] Key-Sync fehlgeschlagen:', e.message);
+  } finally {
+    if (memDb) memDb.close();
   }
 }
 
 function syncKeyRevocation(id) {
+  let memDb;
   try {
     if (!fs.existsSync(MEMORY_DB_PATH)) return;
-    const memDb = new Database(MEMORY_DB_PATH);
+    memDb = new Database(MEMORY_DB_PATH);
     memDb.prepare('DELETE FROM api_keys WHERE id = ?').run(id);
-    memDb.close();
   } catch (e) {
     console.warn('[admin-api] Key-Revocation-Sync fehlgeschlagen:', e.message);
+  } finally {
+    if (memDb) memDb.close();
   }
 }
 

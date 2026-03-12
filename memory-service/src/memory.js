@@ -69,10 +69,10 @@ async function recall(taskDescription, namespace, sharedNamespaces = []) {
     updateRules(rules.slice(0, MAX_RULES_L3));
   }
 
-  return formatRecall(rules.slice(0, MAX_RULES_L3), scoredEpisodes, taskDescription);
+  return formatRecall(rules.slice(0, MAX_RULES_L3), scoredEpisodes);
 }
 
-function formatRecall(rules, episodes, query) {
+function formatRecall(rules, episodes) {
   const parts = [];
 
   if (rules.length > 0) {
@@ -153,10 +153,10 @@ function feedback(episodeId, success) {
 // ─── Stats ─────────────────────────────────────────────────────────────────
 function getStats() {
   const db = getDb();
-  const episodeCount = db.prepare('SELECT COUNT(*) as c FROM episodes').get().c;
-  const ruleCount    = db.prepare('SELECT COUNT(*) as c FROM rules WHERE confirmed = 1').get().c;
-  const avgScore     = db.prepare('SELECT AVG(quality_score) as s FROM episodes').get().s || 0;
-  const hits         = db.prepare('SELECT COUNT(*) as c FROM episodes WHERE access_count > 0').get().c;
+  const episodeCount = db.prepare('SELECT COUNT(*) as c FROM episodes').get()?.c || 0;
+  const ruleCount    = db.prepare('SELECT COUNT(*) as c FROM rules WHERE confirmed = 1').get()?.c || 0;
+  const avgScore     = db.prepare('SELECT AVG(quality_score) as s FROM episodes').get()?.s || 0;
+  const hits         = db.prepare('SELECT COUNT(*) as c FROM episodes WHERE access_count > 0').get()?.c || 0;
   const hitRate      = episodeCount > 0 ? hits / episodeCount : 0;
 
   return { episodeCount, ruleCount, avgScore: avgScore.toFixed(3), hitRate: hitRate.toFixed(3) };

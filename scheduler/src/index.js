@@ -130,7 +130,6 @@ function runDistillation() {
         const learnings = episodes.map(e => e.learnings).join(' | ');
         const ruleText  = `Bei Aufgaben der Kategorie "${cat.task_category}": ${learnings.substring(0, 300)}`;
 
-        const { v4: uuidv4 } = require('uuid');
         db.prepare(`
           INSERT INTO rules (id, namespace, category, rule_text, confidence, source_episodes, confirmed)
           VALUES (?, ?, ?, ?, ?, '[]', 0)
