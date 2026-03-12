@@ -4,7 +4,6 @@ const Database = require('better-sqlite3');
 const { v4: uuidv4 } = require('uuid');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
 
 const app  = express();
 const PORT = parseInt(process.env.PORT || '3459');
@@ -15,11 +14,15 @@ const ADMIN_DB_PATH  = process.env.ADMIN_DB_PATH  || '/data/admin.db';
 const BACKUP_PATH    = process.env.BACKUP_PATH    || '/backups';
 const MEMORY_SVC_URL = process.env.MEMORY_SERVICE_URL || 'http://memory-service:3457';
 
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+const ALLOWED_ORIGIN = `https://${process.env.MEMORY_HOST || 'memory.local'}`;
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Key');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  const origin = req.headers.origin;
+  if (origin === ALLOWED_ORIGIN) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Key');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  }
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -92,9 +95,19 @@ app.get('/api/keys', adminAuth, (req, res) => {
   res.json(keys);
 });
 
+const VALID_SCOPES = new Set(['recall', 'store', 'recall+store', 'recall-only', 'store-only']);
+
 app.post('/api/keys', adminAuth, (req, res) => {
   const { name, scope = 'recall+store', namespaces = '*', rate_limit = 60, expires_at } = req.body;
-  if (!name) return res.status(400).json({ error: 'name erforderlich' });
+  if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 64)
+    return res.status(400).json({ error: 'name erforderlich (max. 64 Zeichen)' });
+  if (!VALID_SCOPES.has(scope))
+    return res.status(400).json({ error: `Ungültiger scope. Erlaubt: ${[...VALID_SCOPES].join(', ')}` });
+  const rl = parseInt(rate_limit);
+  if (isNaN(rl) || rl < 1 || rl > 10000)
+    return res.status(400).json({ error: 'rate_limit muss zwischen 1 und 10000 liegen' });
+  if (typeof namespaces !== 'string' || namespaces.length > 256)
+    return res.status(400).json({ error: 'namespaces ungültig (max. 256 Zeichen)' });
 
   const id  = uuidv4();
   const key = 'mc-' + uuidv4().replace(/-/g, '').substring(0, 24);
@@ -103,10 +116,10 @@ app.post('/api/keys', adminAuth, (req, res) => {
   db.prepare(`
     INSERT INTO api_keys (id, name, key_value, scope, namespaces, rate_limit, expires_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, key, scope, namespaces, rate_limit, expires_at || null);
+  `).run(id, name, key, scope, namespaces, rl, expires_at || null);
 
   // Sync in memory-service DB
-  syncKeyToMemoryService(id, name, key, scope, namespaces, rate_limit, expires_at);
+  syncKeyToMemoryService(id, name, key, scope, namespaces, rl, expires_at);
 
   db.close();
   res.status(201).json({ id, name, key, scope, namespaces, rate_limit });

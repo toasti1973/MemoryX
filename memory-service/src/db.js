@@ -11,6 +11,7 @@ function getDb() {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     db.pragma('synchronous = NORMAL');
+    db.pragma('busy_timeout = 5000');
     initSchema(db);
   }
   return db;
@@ -80,6 +81,9 @@ function initSchema(db) {
   `);
 
   // Standard-Admin-Key anlegen falls noch keiner vorhanden
+  if (!process.env.ADMIN_API_KEY) {
+    console.warn('[db] WARNUNG: ADMIN_API_KEY nicht gesetzt! Bitte in .env konfigurieren.');
+  }
   const adminKey = process.env.ADMIN_API_KEY || 'dev-admin-key-change-me';
   const existing = db.prepare('SELECT id FROM api_keys WHERE id = ?').get('system-admin');
   if (!existing) {

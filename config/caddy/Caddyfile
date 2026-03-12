@@ -8,6 +8,16 @@
 
 {$MEMORY_HOST:memory.local} {
 
+    # ── Security Headers ──────────────────────────────────────────────────
+    header {
+        X-Frame-Options             "DENY"
+        X-Content-Type-Options      "nosniff"
+        X-XSS-Protection            "1; mode=block"
+        Referrer-Policy             "strict-origin-when-cross-origin"
+        Strict-Transport-Security   "max-age=31536000; includeSubDomains"
+        -Server
+    }
+
     # ── MCP-Endpunkt ─────────────────────────────────────────────────────
     handle /mcp* {
         reverse_proxy memory-service:3457 {

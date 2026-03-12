@@ -31,6 +31,11 @@ services:
       - memory-service
       - admin-api
       - admin-ui
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ── Kern MCP-Server ───────────────────────────────────────────────────────
   memory-service:
@@ -134,6 +139,16 @@ services:
       - ./config/admin-ui/Caddyfile.ui:/etc/caddy/Caddyfile:ro
     networks:
       - memory-net
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.2'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ── Scheduler / Cron-Jobs ─────────────────────────────────────────────────
   scheduler:
@@ -164,6 +179,16 @@ services:
     depends_on:
       - memory-service
       - admin-api
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ── Business-OS Adapter (optional, via Profile aktivieren) ────────────────
   memory-adapter:

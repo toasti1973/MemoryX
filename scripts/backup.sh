@@ -12,14 +12,22 @@ DEST="$BACKUP_DIR/memory-${TS}.db"
 
 echo "[backup] Erstelle Backup: $DEST"
 
-# Via admin-api
-ADMIN_KEY=$(grep ADMIN_API_KEY "$PROJECT_DIR/.env" | cut -d= -f2 | tr -d ' ')
-MEMORY_HOST=$(grep MEMORY_HOST "$PROJECT_DIR/.env" | cut -d= -f2 | tr -d ' ')
+# Via admin-api (Keys sicher aus .env lesen - Anker ^ verhindert Partial-Match)
+ADMIN_KEY=$(grep "^ADMIN_API_KEY=" "$PROJECT_DIR/.env" | head -1 | cut -d= -f2- | tr -d "' ")
+MEMORY_HOST=$(grep "^MEMORY_HOST=" "$PROJECT_DIR/.env" | head -1 | cut -d= -f2- | tr -d "' ")
 MEMORY_HOST="${MEMORY_HOST:-memory.local}"
 
-if curl -sf -X POST "https://$MEMORY_HOST/api/backup" \
-     -H "X-Admin-Key: $ADMIN_KEY" \
-     -k 2>/dev/null; then
+# Caddy nutzt selbstsignierte lokale CA → --cacert oder -k nötig
+# CA-Zertifikat exportieren: docker cp memory-caddy:/data/caddy/pki/authorities/local/root.crt /opt/MemoryX/config/caddy/ca.crt
+CA_CERT="${PROJECT_DIR}/config/caddy/ca.crt"
+CURL_TLS_OPT="-k"
+if [ -f "$CA_CERT" ]; then
+  CURL_TLS_OPT="--cacert ${CA_CERT}"
+fi
+
+if curl -sf -X POST "https://${MEMORY_HOST}/api/backup" \
+     -H "X-Admin-Key: ${ADMIN_KEY}" \
+     $CURL_TLS_OPT 2>/dev/null; then
   echo "[backup] Backup via API erstellt"
 else
   # Fallback: direkt aus Container

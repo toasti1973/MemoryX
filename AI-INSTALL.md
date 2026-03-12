@@ -131,7 +131,7 @@ curl -sk <URL_VOM_NUTZER>/health
 
 **Erwartete Antwort:**
 ```json
-{"status":"ok","db":"ok","ollama":"ok","uptime":1234,"version":"1.0.0"}
+{"status":"ok","services":{"memory-service":"ok"},"timestamp":1234567890}
 ```
 
 **Wenn `status: ok`:** Schreib dem Nutzer: "Server ist erreichbar, Integration abgeschlossen."
@@ -328,5 +328,5 @@ Gibt zurück: `context` (formatierter Text), `episodeCount`, `ruleCount`, `token
 
 ---
 
-*MemoryX · AI-Installationsanleitung · v1.0 · 2026*
+*MemoryX · AI-Installationsanleitung · v1.1 · 2026*
 *Quelle: https://github.com/toasti1973/MemoryX*

@@ -1,6 +1,6 @@
 # MemoryX — Persistent AI Memory for Claude
 
-> A fully containerized Docker stack that gives every Claude instance persistent, cross-session memory — powered by local embeddings via Ollama, MCP integration, and a web-based admin UI.
+> A fully containerized Docker stack that gives every Claude instance persistent, cross-session memory — powered by local embeddings via Ollama, MCP integration, and a modern dark web-based admin UI.
 
 [![Docker](https://img.shields.io/badge/Docker-Compose-0DB7ED?logo=docker)](https://docs.docker.com/compose/)
 [![Ollama](https://img.shields.io/badge/Ollama-nomic--embed--text-006064)](https://ollama.com)
@@ -90,9 +90,11 @@ MemoryX runs as a fully containerized Docker stack on a Proxmox server in your l
 │   ├── episodes.html           # Episode browser
 │   ├── rules.html              # L3 rule management
 │   ├── logs.html               # Live log viewer
+│   ├── health.html             # Dedicated health status page
 │   └── system.html             # System actions
 ├── scripts/
 │   ├── setup.sh                # First-time setup + Ollama model pull
+│   ├── update.sh               # git pull + smart Docker rebuild
 │   ├── backup.sh               # Manual database backup
 │   └── healthcheck.sh          # Status check for all services
 └── data/                       # Mounted by Docker (memory.db)
@@ -158,7 +160,9 @@ Static HTML/CSS/JS files — no build pipeline. Served directly by Caddy.
 | Distillation | Daily 02:30 | Generate L3 rules from ≥3 similar episodes |
 | DB Backup | Daily 03:00 | SQLite VACUUM + copy to backup volume |
 | Score Decay | Daily 04:00 | Apply time-based quality decay to all episodes |
-| Health Report | Hourly | Write status log to admin-api |
+| Health Report | Hourly | Write status log to stdout |
+
+All scheduler jobs are wrapped in error handlers — a failed job is logged but does not crash the service.
 
 ### caddy — Reverse Proxy
 
@@ -381,6 +385,11 @@ CPU_LIMIT_OLLAMA=2.0
 
 ## 7. Admin UI & Monitoring
 
+### Update Procedure
+
+\n
+Automatically detects changed services and rebuilds only what is needed.
+
 ### Key Metrics
 
 | Metric | Target | Alert when |
@@ -504,4 +513,4 @@ MIT — freely adaptable for your own infrastructure.
 
 ---
 
-*MemoryX · v1.0 · 2026 · <https://github.com/toasti1973/MemoryX>*
+*MemoryX · v1.1 · 2026 · <https://github.com/toasti1973/MemoryX>*

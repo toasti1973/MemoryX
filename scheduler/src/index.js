@@ -165,11 +165,18 @@ const DISTILL_SCHEDULE = process.env.DISTILL_SCHEDULE || '30 2 * * *';
 const BACKUP_SCHEDULE  = process.env.BACKUP_SCHEDULE  || '0 3 * * *';
 const DECAY_SCHEDULE   = process.env.DECAY_SCHEDULE   || '0 4 * * *';
 
-cron.schedule(GC_SCHEDULE,      () => runGC(),           { timezone: 'Europe/Berlin' });
-cron.schedule(DISTILL_SCHEDULE, () => runDistillation(), { timezone: 'Europe/Berlin' });
-cron.schedule(BACKUP_SCHEDULE,  () => runBackup(),       { timezone: 'Europe/Berlin' });
-cron.schedule(DECAY_SCHEDULE,   () => runDecay(),        { timezone: 'Europe/Berlin' });
-cron.schedule('0 * * * *',      () => runHealthReport(), { timezone: 'Europe/Berlin' });
+function safe(name, fn) {
+  return async () => {
+    try { await fn(); }
+    catch (err) { log(name, `FEHLER: ${err.message}`); }
+  };
+}
+
+cron.schedule(GC_SCHEDULE,      safe('gc',       runGC),           { timezone: 'Europe/Berlin' });
+cron.schedule(DISTILL_SCHEDULE, safe('distill',  runDistillation), { timezone: 'Europe/Berlin' });
+cron.schedule(BACKUP_SCHEDULE,  safe('backup',   runBackup),       { timezone: 'Europe/Berlin' });
+cron.schedule(DECAY_SCHEDULE,   safe('decay',    runDecay),        { timezone: 'Europe/Berlin' });
+cron.schedule('0 * * * *',      safe('health',   runHealthReport), { timezone: 'Europe/Berlin' });
 
 // ─── Startup ──────────────────────────────────────────────────────────────
 log('startup', 'Memory Scheduler gestartet');
