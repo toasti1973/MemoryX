@@ -1,59 +1,59 @@
-# 🧠 Claude Memory System
+# MemoryX — Persistent AI Memory for Claude
 
-> Persistentes, bereichsübergreifendes Gedächtnis für Claude — Docker-Stack auf Proxmox mit lokalem Embedding, MCP-Integration und Web-Admin-UI.
+> A fully containerized Docker stack that gives every Claude instance persistent, cross-session memory — powered by local embeddings via Ollama, MCP integration, and a web-based admin UI.
 
 [![Docker](https://img.shields.io/badge/Docker-Compose-0DB7ED?logo=docker)](https://docs.docker.com/compose/)
 [![Ollama](https://img.shields.io/badge/Ollama-nomic--embed--text-006064)](https://ollama.com)
 [![MCP](https://img.shields.io/badge/MCP-Claude%20Code-1565C0)](https://modelcontextprotocol.io)
-[![License](https://img.shields.io/badge/Lizenz-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ---
 
-## Inhaltsverzeichnis
+## Table of Contents
 
-1. [Überblick](#1-überblick)
-2. [Gesamt-Architektur](#2-gesamt-architektur)
-3. [Dienste im Detail](#3-dienste-im-detail)
-4. [Client-Konfiguration](#4-client-konfiguration)
-5. [Konfiguration (.env)](#5-konfiguration-env)
-6. [Implementierungsplan](#6-implementierungsplan)
-7. [Admin-UI & Monitoring](#7-admin-ui--monitoring)
-8. [Sicherheit](#8-sicherheit)
-9. [Ressourcen & Kosten](#9-ressourcen--kosten)
-10. [Installations-Checkliste](#10-installations-checkliste)
-
----
-
-## 1. Überblick
-
-Das Memory System läuft als vollständig containerisierter Docker-Stack auf einem Proxmox-Server im lokalen Netzwerk. Alle Claude-Instanzen (VS Code, Desktop App, CLI) verbinden sich über dasselbe MCP-Interface und teilen einen gemeinsamen Gedächtnispool.
-
-### Was dieses System leistet
-
-- **Persistentes Gedächtnis** — Erfahrungen überleben Sitzungen, Reboots und Neustarts
-- **Bereichsübergreifend** — VS Code, Desktop App und CLI teilen denselben Wissenspool
-- **Lokales Embedding via Ollama** — keine API-Kosten, keine Cloud-Abhängigkeit, volle Datenkontrolle
-- **Web-Admin-UI** — API-Key-Verwaltung, Live-Monitoring und Log-Viewer direkt im Browser
-- **Business-OS-Integration** — optionaler Adapter für Nextcloud, ERPNext, Gitea, Outline u.a.
-- **DSGVO-konform** — alle Daten bleiben im lokalen Netz, keine externen Dienste notwendig
-
-### Drei Gedächtnisschichten (L1/L2/L3)
-
-| Schicht | Name | Technologie | Zweck |
-|---------|------|-------------|-------|
-| L1 | Episodisches Gedächtnis | SQLite | Komprimierte Erfahrungseinträge (max. 200 Tokens) |
-| L2 | Semantisches Gedächtnis | sqlite-vec | Vektoren für semantische Ähnlichkeitssuche |
-| L3 | Prozedurales Gedächtnis | SQLite Key-Value | Destillierte Regeln aus wiederkehrenden Mustern |
+1. [Overview](#1-overview)
+2. [Architecture](#2-architecture)
+3. [Services](#3-services)
+4. [Client Configuration](#4-client-configuration)
+5. [Configuration (.env)](#5-configuration-env)
+6. [Deployment Plan](#6-deployment-plan)
+7. [Admin UI & Monitoring](#7-admin-ui--monitoring)
+8. [Security](#8-security)
+9. [Resources & Cost](#9-resources--cost)
+10. [Installation Checklist](#10-installation-checklist)
 
 ---
 
-## 2. Gesamt-Architektur
+## 1. Overview
 
-### Docker-Stack Übersicht
+MemoryX runs as a fully containerized Docker stack on a Proxmox server in your local network. All Claude instances — VS Code, Desktop App, CLI — connect via a shared MCP interface and draw from the same memory pool.
 
-```
+### What it does
+
+- **Persistent memory** — experiences survive sessions, reboots, and restarts
+- **Cross-client** — VS Code, Desktop App, and CLI share one knowledge pool
+- **Local embeddings via Ollama** — no API costs, no cloud dependency, full data control
+- **Web Admin UI** — API key management, live monitoring, and log viewer in the browser
+- **Business-OS integration** — optional adapter for Nextcloud, Gitea, ERPNext, Outline, and more
+- **Privacy-first** — all data stays on your local network, no external services required
+
+### Three Memory Layers (L1 / L2 / L3)
+
+| Layer | Name | Technology | Purpose |
+| ----- | ---- | ---------- | ------- |
+| L1 | Episodic memory | SQLite | Compressed experience entries (max. 200 tokens) |
+| L2 | Semantic memory | Ollama embeddings | Vectors for semantic similarity search |
+| L3 | Procedural memory | SQLite Key-Value | Distilled rules from recurring patterns |
+
+---
+
+## 2. Architecture
+
+### Docker Stack Overview
+
+```text
 ┌─────────────────────────────────────────────────────────────────┐
-│  LOKALES NETZ — VS Code · Desktop App · Browser · Business-OS   │
+│  LOCAL NETWORK — VS Code · Desktop App · Browser · Business-OS  │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ HTTPS :443
 ┌──────────────────────────▼──────────────────────────────────────┐
@@ -63,10 +63,10 @@ Das Memory System läuft als vollständig containerisierter Docker-Stack auf ein
        │           │               │               │
   [memory-   [ollama]        [admin-api]      [admin-ui]
    service]   :11434          :3459            :8080
-   :3457     Embedding       REST-Backend     Web-Dashboard
+   :3457     Embedding       REST Backend     Web Dashboard
 
   [scheduler]               [memory-adapter]
-  GC·Backup·Destillierung   Business-OS Bridge (optional)
+  GC · Backup · Distill     Business-OS Bridge (optional)
 
 ┌─────────────────────────────────────────────────────────────────┐
 │  DOCKER VOLUMES (persistent)                                     │
@@ -74,91 +74,91 @@ Das Memory System läuft als vollständig containerisierter Docker-Stack auf ein
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Verzeichnis-Struktur
+### Directory Structure
 
-```
+```text
 /opt/memory-system/
-├── docker-compose.yml          # Haupt-Stack
-├── .env                        # Secrets & Konfiguration (nicht im Git!)
+├── docker-compose.yml          # Main stack definition
+├── .env                        # Secrets & configuration (never commit!)
 ├── config/
 │   ├── caddy/Caddyfile         # Routing + TLS
-│   ├── memory-service/         # Namespaces, Token-Limits
-│   └── scheduler/              # Cron-Zeitpläne
+│   ├── memory-service/         # Namespaces, token limits
+│   └── clients/                # Config templates for all clients
 ├── admin-ui/
 │   ├── index.html              # Dashboard
-│   ├── keys.html               # API-Key-Verwaltung
-│   ├── episodes.html           # Episoden-Browser
-│   ├── rules.html              # Regelmanagement (L3)
-│   ├── logs.html               # Live-Log-Viewer
-│   └── system.html             # System-Aktionen
+│   ├── keys.html               # API key management
+│   ├── episodes.html           # Episode browser
+│   ├── rules.html              # L3 rule management
+│   ├── logs.html               # Live log viewer
+│   └── system.html             # System actions
 ├── scripts/
-│   ├── setup.sh                # Ersteinrichtung + Ollama-Modell-Pull
-│   ├── backup.sh               # Manuelles Backup
-│   └── healthcheck.sh          # Status aller Dienste
-└── data/                       # Von Docker gemountet (memory.db)
+│   ├── setup.sh                # First-time setup + Ollama model pull
+│   ├── backup.sh               # Manual database backup
+│   └── healthcheck.sh          # Status check for all services
+└── data/                       # Mounted by Docker (memory.db)
 ```
 
 ---
 
-## 3. Dienste im Detail
+## 3. Services
 
-### memory-service — MCP-Kern
+### memory-service — MCP Core
 
-| Endpunkt | Methode | Funktion | Token-Budget |
-|----------|---------|----------|--------------|
-| `/mcp/recall` | POST | Sucht L3→L2→L1, gibt formatierten Kontext zurück | max. 450 Tokens |
-| `/mcp/store` | POST | Speichert Episode, triggert Embedding bei Ollama | — |
-| `/mcp/feedback` | POST | Aktualisiert Quality-Score eines Eintrags | — |
-| `/health` | GET | Status aller internen Abhängigkeiten | — |
+| Endpoint | Method | Function | Token Budget |
+| -------- | ------ | -------- | ------------ |
+| `/mcp/recall` | POST | Searches L3→L2→L1, returns formatted context | max. 450 tokens |
+| `/mcp/store` | POST | Stores an episode, triggers embedding via Ollama | — |
+| `/mcp/feedback` | POST | Updates the quality score of an entry | — |
+| `/health` | GET | Status of all internal dependencies | — |
 
-- **Image:** `node:20-alpine` · **Port:** `3457` (intern) · **Restart:** `always` · **RAM:** 512 MB
+**Image:** `node:20-alpine` · **Port:** `3457` (internal) · **Restart:** `always` · **RAM limit:** 512 MB
 
-### ollama — Lokales Embedding
+### ollama — Local Embeddings
 
+```text
+Model:    nomic-embed-text  (768 dimensions, ~300 MB)
+Port:     11434  (internal only, no LAN access)
+Latency:  ~150 ms/embedding on a standard server CPU
+Volume:   ollama-models  (persisted — no re-download after restart)
 ```
-Modell:  nomic-embed-text  (768 Dimensionen, ~300 MB)
-Port:    11434  (nur intern, kein LAN-Zugriff)
-Latenz:  ~150 ms/Embedding auf Standard-Server-CPU
-Volume:  ollama-models  (persistiert, kein Re-Download nach Neustart)
-```
 
-> **Hinweis:** Beim ersten `docker compose up` wird das Modell automatisch via `setup.sh` gepullt (1–5 Minuten).
+> **Note:** On first `docker compose up`, the model is pulled automatically via `setup.sh` (1–5 minutes).
 
-### admin-api — REST-Backend
+### admin-api — REST Backend
 
-| Gruppe | Endpunkte | Funktion |
-|--------|-----------|----------|
-| API-Keys | `GET/POST/DELETE /api/keys` | Schlüssel auflisten, erstellen, widerrufen |
-| Statistiken | `GET /api/stats` | Hit-Rate, Episoden, Regeln, DB-Größe |
-| Gesundheit | `GET /api/health` | Status aller Docker-Services |
-| Episoden | `GET/DELETE /api/episodes` | Episoden suchen und löschen |
-| Regeln | `GET/POST/DELETE /api/rules` | L3-Regeln verwalten |
-| Logs | `GET /api/logs` | Log-Streaming aus Containern |
-| Backup | `POST /api/backup` | Manuelles Backup anstoßen |
-| System | `POST /api/gc` `/api/distill` | GC und Destillierung auslösen |
+| Group | Endpoints | Function |
+| ----- | --------- | -------- |
+| API Keys | `GET/POST/DELETE /api/keys` | List, create, revoke keys |
+| Statistics | `GET /api/stats` | Hit rate, episode count, rule count, DB size |
+| Health | `GET /api/health` | Status of all Docker services |
+| Episodes | `GET/DELETE /api/episodes` | Search and delete episodes |
+| Rules | `GET/POST/DELETE /api/rules` | Manage L3 rules |
+| Logs | `GET /api/logs` | Access log streaming |
+| Backup | `POST /api/backup` | Trigger a manual backup |
+| System | `POST /api/gc` `/api/distill` | Trigger GC and distillation manually |
 
-### admin-ui — Web-Dashboard
+### admin-ui — Web Dashboard
 
-Statische HTML/CSS/JS-Dateien ohne Build-Pipeline. Caddy liefert sie direkt aus.
+Static HTML/CSS/JS files — no build pipeline. Served directly by Caddy.
 
-| Seite | URL | Inhalt |
-|-------|-----|--------|
-| Dashboard | `/admin/` | KPI-Karten, Service-Ampeln, Aktivitätsgraph (Auto-Refresh 30s) |
-| API-Keys | `/admin/keys` | Keys erstellen, kopieren, widerrufen |
-| Episoden | `/admin/episodes` | Suchen und löschen |
-| Regeln | `/admin/rules` | L3-Regeln prüfen, bestätigen, verwerfen |
-| Logs | `/admin/logs` | Live-Log-Viewer mit Fehler-Hervorhebung |
-| System | `/admin/system` | RAM/CPU/DB-Größe, Backup, GC, Restart |
+| Page | URL | Content |
+| ---- | --- | ------- |
+| Dashboard | `/admin/` | KPI cards, service status lights, activity log (auto-refresh 30s) |
+| API Keys | `/admin/keys` | Create, copy, revoke keys |
+| Episodes | `/admin/episodes` | Search and delete episodes |
+| Rules | `/admin/rules` | Review, confirm, or discard L3 rules |
+| Logs | `/admin/logs` | Live log viewer with error highlighting |
+| System | `/admin/system` | RAM/CPU/DB size, backup, GC, restart |
 
-### scheduler — Hintergrundjobs
+### scheduler — Background Jobs
 
-| Job | Zeitplan | Aktion |
-|-----|----------|--------|
-| Garbage Collection | Täglich 02:00 | Veraltete/schwache Episoden löschen |
-| Destillierung | Täglich 02:30 | L3-Regeln aus ≥3 ähnlichen Episoden erzeugen |
-| DB-Backup | Täglich 03:00 | SQLite VACUUM + Kopie ins Backup-Volume |
-| Score-Decay | Täglich 04:00 | Zeitlichen Abwertungsfaktor anwenden |
-| Health-Report | Stündlich | Status-Log in admin-api schreiben |
+| Job | Schedule | Action |
+| --- | -------- | ------ |
+| Garbage Collection | Daily 02:00 | Delete weak / outdated episodes |
+| Distillation | Daily 02:30 | Generate L3 rules from ≥3 similar episodes |
+| DB Backup | Daily 03:00 | SQLite VACUUM + copy to backup volume |
+| Score Decay | Daily 04:00 | Apply time-based quality decay to all episodes |
+| Health Report | Hourly | Write status log to admin-api |
 
 ### caddy — Reverse Proxy
 
@@ -166,7 +166,7 @@ Statische HTML/CSS/JS-Dateien ohne Build-Pipeline. Caddy liefert sie direkt aus.
 memory.local {
   handle /mcp* {
     reverse_proxy memory-service:3457
-    # Auth: X-API-Key Header, validiert vom memory-service
+    # Auth: X-API-Key header, validated by memory-service
   }
   handle /admin* {
     basicauth { {env.ADMIN_USER} {env.ADMIN_PASSWORD_HASH} }
@@ -175,17 +175,18 @@ memory.local {
   handle /api* {
     reverse_proxy admin-api:3459
   }
-  tls internal   # Automatisches HTTPS mit lokaler CA
+  tls internal   # Automatic HTTPS with local CA
 }
 ```
 
 ---
 
-## 4. Client-Konfiguration
+## 4. Client Configuration
 
 ### Claude Code in VS Code
 
 **Global** — `settings.json`:
+
 ```json
 {
   "claude.mcpServers": {
@@ -200,14 +201,16 @@ memory.local {
 }
 ```
 
-**Projektspezifisch** — `.mcp.json` im Projektordner:
+**Project-specific** — `.mcp.json` in the project root:
+
 ```json
 {
   "mcpServers": {
     "memory-project": {
       "url": "https://memory.local/mcp",
-      "apiKey": "mc-proj-meinprojekt-xxxx",
-      "namespace": "project:meinprojekt",
+      "apiKey": "mc-proj-myproject-xxxx",
+      "namespace": "project:myproject",
+      "sharedNamespaces": ["global"],
       "autoRecall": true,
       "autoStore": true
     }
@@ -215,12 +218,13 @@ memory.local {
 }
 ```
 
-**`CLAUDE.md`** im Projektordner:
-```markdown
-## Memory-Anweisungen
+**`CLAUDE.md`** in the project root:
 
-Zu Beginn jeder Sitzung: memory-project:recall('aktueller Kontext') aufrufen.
-Am Ende jeder Sitzung: erledigte Aufgaben, Erkenntnisse und offene Punkte speichern.
+```markdown
+## Memory Instructions
+
+At the start of every session: call memory-project:recall with a description of the current task.
+At the end of every session: store completed work, insights, and open points.
 Format: { task_category, outcome, context_summary, learnings }
 ```
 
@@ -229,6 +233,7 @@ Format: { task_category, outcome, context_summary, learnings }
 ```json
 // macOS:   ~/Library/Application Support/Claude/claude_desktop_config.json
 // Windows: %APPDATA%\Claude\claude_desktop_config.json
+// Linux:   ~/.config/Claude/claude_desktop_config.json
 {
   "mcpServers": {
     "memory-desktop": {
@@ -260,44 +265,48 @@ Format: { task_category, outcome, context_summary, learnings }
 }
 ```
 
-### TLS-Zertifikat importieren (einmalig pro Client)
+### Importing the TLS Certificate (once per client)
 
 ```bash
-# Caddy Root-CA exportieren
+# Export Caddy Root CA
 docker exec caddy caddy trust
 
 # macOS
-# Doppelklick auf .crt → Schlüsselbund → Als vertrauenswürdig markieren
+# Double-click the .crt file → Keychain → Mark as trusted
 
 # Windows
-# certmgr.msc → Vertrauenswürdige Stammzertifizierungsstellen → Importieren
+# certmgr.msc → Trusted Root Certification Authorities → Import
 
 # Linux
 sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates
 ```
 
-### Remote-Zugriff (Homeoffice)
+### Remote Access (Home Office)
 
-WireGuard VPN auf dem Proxmox-Host — Clients verwenden **identische Konfiguration** wie im LAN:
+WireGuard VPN on the Proxmox host — clients use the **same configuration** as on the LAN:
 
-```
-Laptop (extern) → WireGuard :51820 → 192.168.1.50 → memory.local → Memory-Service
+```text
+Laptop (remote) → WireGuard :51820 → 192.168.1.50 → memory.local → memory-service
 ```
 
 ---
 
-## 5. Konfiguration (.env)
+## 5. Configuration (.env)
 
 ```env
 # ── Server ────────────────────────────────────────────────────────
 MEMORY_HOST=memory.local
 MEMORY_PORT=443
 
-# ── Admin-UI Auth ─────────────────────────────────────────────────
+# ── Admin UI Auth ─────────────────────────────────────────────────
 ADMIN_USER=admin
-ADMIN_PASSWORD_HASH=           # bcrypt-Hash via: caddy hash-password
+ADMIN_PASSWORD_HASH=           # bcrypt hash via: caddy hash-password
 
-# ── Memory-Service ────────────────────────────────────────────────
+# ── Internal Security ─────────────────────────────────────────────
+ADMIN_API_KEY=                 # generate: openssl rand -hex 32
+JWT_SECRET=                    # generate: openssl rand -hex 32
+
+# ── Memory Service ────────────────────────────────────────────────
 MAX_RECALL_TOKENS=450
 SIMILARITY_THRESHOLD=0.75
 MAX_RESULTS_L2=3
@@ -332,145 +341,167 @@ CPU_LIMIT_SERVICE=1.0
 CPU_LIMIT_OLLAMA=2.0
 ```
 
-> ⚠️ `.env` niemals ins Git committen — enthält Admin-Passwort und API-Keys.
+> ⚠️ Never commit `.env` to Git — it contains your admin password and API keys.
 
 ---
 
-## 6. Implementierungsplan
+## 6. Deployment Plan
 
-| Phase | Dauer | Ziel | Abnahmekriterium |
-|-------|-------|------|-----------------|
-| Phase 0 | 2–4 Std. | Proxmox LXC/VM + Docker | `docker compose version` läuft |
-| Phase 1 | 1 Tag | Core-Stack (Service + Ollama + Caddy) | `GET /health` → `{status: ok}` |
-| Phase 2 | 1 Tag | Admin-API + Web-Dashboard | Dashboard zeigt grüne Ampeln |
-| Phase 3 | 0,5 Tage | Scheduler + erstes Backup | Backup-Datei im Volume vorhanden |
-| Phase 4 | 0,5 Tage | VS Code / Claude Code | Recall liefert Kontext in neuer Sitzung |
-| Phase 5 | 0,5 Tage | Desktop App + CLI | Alle drei Clients in Admin-Logs sichtbar |
-| Phase 6 | 0,5 Tage | WireGuard VPN (optional) | Remote-Zugriff funktioniert |
-| Phase 7 | 2–4 Tage | Business-OS Adapter | Episoden aus Business-OS in Admin-UI |
-| Phase 8 | 1 Woche | Tuning & Validierung | Hit-Rate ≥ 60% |
+| Phase | Duration | Goal | Acceptance Criterion |
+| ----- | -------- | ---- | -------------------- |
+| Phase 0 | 2–4 h | Proxmox LXC/VM + Docker | `docker compose version` runs in container |
+| Phase 1 | 1 day | Core stack (service + Ollama + Caddy) | `GET /health` → `{status: ok}` |
+| Phase 2 | 1 day | Admin API + Web Dashboard | Dashboard shows green status lights |
+| Phase 3 | 0.5 days | Scheduler + first backup | Backup file present in volume |
+| Phase 4 | 0.5 days | VS Code / Claude Code | Recall returns context in a new session |
+| Phase 5 | 0.5 days | Desktop App + CLI | All three clients visible in admin logs |
+| Phase 6 | 0.5 days | WireGuard VPN (optional) | Remote access works |
+| Phase 7 | 2–4 days | Business-OS Adapter | Business-OS episodes visible in admin UI |
+| Phase 8 | 1 week | Tuning & validation | Hit rate ≥ 60% |
 
 ### Proxmox Hardware
 
-| Ressource | Minimum | Empfohlen |
-|-----------|---------|-----------|
-| CPU | 4 Kerne | 6–8 Kerne |
+| Resource | Minimum | Recommended |
+| -------- | ------- | ----------- |
+| CPU | 4 cores | 6–8 cores |
 | RAM | 8 GB | 16 GB |
 | Storage (SSD) | 60 GB | 120 GB |
 
-**LXC-Einstellungen:** `nesting=1`, `keyctl=1` (notwendig für Docker-in-LXC)
+**LXC settings required:** `nesting=1`, `keyctl=1` (needed for Docker-in-LXC)
 
-### DNS-Auflösung für `memory.local`
+### DNS Resolution for `memory.local`
 
-| Option | Aufwand | Vorgehen |
-|--------|---------|----------|
-| `/etc/hosts` | Sehr gering | `192.168.1.50  memory.local` auf jedem Client |
-| Router-DNS | Gering | Lokalen DNS-Eintrag im Router anlegen |
-| Pi-hole / Unbound | Mittel | Eigener DNS-Server als LXC |
+| Option | Effort | Setup |
+| ------ | ------ | ----- |
+| `/etc/hosts` | Very low | Add `192.168.1.50  memory.local` on each client |
+| Router DNS | Low | Add a local DNS entry in your router |
+| Pi-hole / Unbound | Medium | Run a dedicated DNS server as an LXC container |
 
 ---
 
-## 7. Admin-UI & Monitoring
+## 7. Admin UI & Monitoring
 
-### Monitoring-Metriken
+### Key Metrics
 
-| Metrik | Zielwert | Alarm wenn |
-|--------|----------|------------|
-| Hit-Rate | ≥ 60% | < 40% |
-| Recall-Latenz | < 100 ms | > 300 ms |
-| DB-Größe | < 80% des Limits | > 90% |
-| Embedding-Latenz | < 500 ms | > 2 Sek. |
-| GC-Erfolg | Täglich OK | Fehler |
-| Backup-Status | Täglich OK | Fehler |
+| Metric | Target | Alert when |
+| ------ | ------ | ---------- |
+| Hit Rate | ≥ 60% | < 40% |
+| Recall Latency | < 100 ms | > 300 ms |
+| DB Size | < 80% of limit | > 90% |
+| Embedding Latency | < 500 ms | > 2 s |
+| GC | Daily OK | Error |
+| Backup | Daily OK | Error |
 
-### API-Key-Attribute
+### API Key Attributes
 
-| Attribut | Beschreibung |
-|----------|-------------|
-| Name | z. B. `vscode-laptop`, `desktop-app`, `business-os-adapter` |
+| Attribute | Description |
+| --------- | ----------- |
+| Name | e.g. `vscode-laptop`, `desktop-app`, `business-os-adapter` |
 | Scope | `recall-only` \| `store-only` \| `recall+store` \| `admin` |
-| Namespace-Filter | Welche Namespaces darf dieser Key lesen/schreiben |
-| Rate-Limit | Max. Anfragen pro Minute |
-| Ablaufdatum | Optional — für temporäre Agenten |
-| Letzte Nutzung | Inaktive Keys erkennbar |
+| Namespace Filter | Which namespaces this key may read/write |
+| Rate Limit | Max requests per minute |
+| Expiry | Optional — useful for temporary agents |
+| Last Used | Timestamp — makes inactive keys visible |
 
 ---
 
-## 8. Sicherheit
+## 8. Security
 
-| Bedrohung | Schutzmaßnahme |
-|-----------|----------------|
-| Unbefugter MCP-Zugriff | API-Key im `X-API-Key` Header; ohne Key: 401 |
-| Unbefugter Admin-Zugriff | HTTP Basic Auth via Caddy, bcrypt-Hash |
-| Datenübertragung | TLS auf allen Verbindungen (Caddy internal CA) |
-| Sensible Daten in Episoden | Pre-Store-Filter: Regex-Blacklist für Passwörter, Keys, PII |
-| Internet-Exposition | Keine Port-Weiterleitung — nur LAN erreichbar |
-| Backup-Exposition | Backup-Volume nur intern mountbar |
-
----
-
-## 9. Ressourcen & Kosten
-
-| Komponente | Kosten |
-|------------|--------|
-| Proxmox VE | Kostenlos (Community Edition) |
-| Docker + Docker Compose | Kostenlos |
-| Ollama + nomic-embed-text | Kostenlos |
-| Caddy | Kostenlos |
-| Externe Embedding-API | **0 €** — nur lokales Ollama |
-| Betriebskosten (Strom) | ca. 5–15 €/Monat |
+| Threat | Mitigation |
+| ------ | ---------- |
+| Unauthorized MCP access | API key in `X-API-Key` header — no key → 401 |
+| Unauthorized admin access | HTTP Basic Auth via Caddy, bcrypt hash |
+| Data in transit | TLS on all connections (Caddy internal CA) |
+| Sensitive data in episodes | Pre-store filter: regex blocklist for passwords, keys, PII |
+| Internet exposure | No port forwarding — LAN-only by default |
+| Backup exposure | Backup volume only mountable internally |
 
 ---
 
-## 10. Installations-Checkliste
+## 9. Resources & Cost
+
+| Component | Cost |
+| --------- | ---- |
+| Proxmox VE | Free (Community Edition) |
+| Docker + Docker Compose | Free |
+| Ollama + nomic-embed-text | Free |
+| Caddy | Free |
+| External embedding API | **$0** — local Ollama only |
+| Operating cost (electricity) | ~$5–15 / month |
+
+---
+
+## 10. Installation Checklist
 
 ### Phase 0 — Proxmox & Docker
-- [ ] LXC oder VM erstellen (Ubuntu 22.04, 4 GB RAM, 40 GB SSD)
-- [ ] Bei LXC: `nesting=1` und `keyctl=1` aktivieren
-- [ ] Docker + Docker Compose installieren
-- [ ] Feste IP vergeben (`192.168.1.50`)
-- [ ] `memory.local` in `/etc/hosts` oder Router-DNS eintragen
-- [ ] `/opt/memory-system` anlegen
 
-### Phase 1 — Core-Stack
-- [ ] `.env` erstellen und befüllen
-- [ ] `docker-compose.yml` erstellen
-- [ ] `setup.sh` ausführen (Ollama-Modell-Pull)
-- [ ] `docker compose up -d`
-- [ ] Caddy Root-CA auf Clients importieren
-- [ ] `https://memory.local/health` → `{status: ok}` prüfen
+- [ ] Create LXC or VM (Ubuntu 22.04, 4 GB RAM, 40 GB SSD)
+- [ ] For LXC: enable `nesting=1` and `keyctl=1`
+- [ ] Install Docker + Docker Compose
+- [ ] Assign a static IP (e.g. `192.168.1.50`)
+- [ ] Add `memory.local` to `/etc/hosts` or router DNS
+- [ ] Create `/opt/memory-system`
 
-### Phase 2 — Admin-UI
-- [ ] `https://memory.local/admin/` öffnen und anmelden
-- [ ] API-Key `vscode-global` erstellen (Scope: `recall+store`)
-- [ ] API-Key `desktop-app` erstellen
-- [ ] Alle Service-Ampeln grün
-- [ ] Manuellen Backup-Test durchführen
+### Phase 1 — Core Stack
+
+- [ ] Create `.env` from `.env.example` and fill in secrets
+- [ ] Run `./scripts/setup.sh`
+- [ ] Run `docker compose up -d`
+- [ ] Import Caddy Root CA on all clients
+- [ ] Verify `https://memory.local/health` → `{status: ok}`
+
+### Phase 2 — Admin UI
+
+- [ ] Open `https://memory.local/admin/` and log in
+- [ ] Create API key `vscode-global` (scope: `recall+store`)
+- [ ] Create API key `desktop-app`
+- [ ] All service status lights green
+- [ ] Run a manual backup test
 
 ### Phase 3 — VS Code
-- [ ] `settings.json` mit globalem MCP-Eintrag befüllen
-- [ ] `.mcp.json` im ersten Projekt anlegen
-- [ ] `CLAUDE.md` anlegen
-- [ ] Neue Sitzung: Recall testen
-- [ ] Episode in Admin-UI `/admin/episodes` sichtbar
+
+- [ ] Add global MCP entry to `settings.json`
+- [ ] Create `.mcp.json` in your first project
+- [ ] Create `CLAUDE.md`
+- [ ] Start a new session and test recall
+- [ ] Verify episode is visible in admin UI at `/admin/episodes`
 
 ### Phase 4 — Desktop App & CLI
-- [ ] `claude_desktop_config.json` befüllen, App neu starten
-- [ ] `~/.claude/config.json` für CLI befüllen
-- [ ] Alle drei Clients in Admin-UI Logs sichtbar
+
+- [ ] Fill in `claude_desktop_config.json`, restart app
+- [ ] Fill in `~/.claude/config.json` for CLI
+- [ ] All three clients visible in admin UI logs
 
 ### Phase 5 — Business-OS (optional)
-- [ ] `ADAPTER_SOURCE` und `ADAPTER_API_URL` in `.env` setzen
-- [ ] `ADAPTER_FILTER_FIELDS` für Datenschutz definieren
-- [ ] `docker compose --profile business-os up -d`
-- [ ] DSGVO-Check: keine personenbezogenen Daten in Episoden
+
+- [ ] Set `ADAPTER_SOURCE` and `ADAPTER_API_URL` in `.env`
+- [ ] Define `ADAPTER_FILTER_FIELDS` for privacy compliance
+- [ ] Run `docker compose --profile business-os up -d`
+- [ ] Verify no personal data appears in episodes
 
 ---
 
-## Lizenz
+## AI-Assisted Integration
 
-MIT — Planungsdokument, anpassbar für eigene Infrastruktur.
+Want to integrate MemoryX into an existing project automatically?
+
+Ask Claude:
+
+```text
+Read the AI-INSTALL.md file from https://github.com/toasti1973/MemoryX
+and integrate MemoryX into this project.
+```
+
+Claude will ask for your server URL, API key, and namespace — then create `.mcp.json` and `CLAUDE.md` automatically.
+
+See [AI-INSTALL.md](AI-INSTALL.md) for the full step-by-step guide.
 
 ---
 
-*Claude Memory System · v1.0 · 2026*
+## License
+
+MIT — freely adaptable for your own infrastructure.
+
+---
+
+*MemoryX · v1.0 · 2026 · <https://github.com/toasti1973/MemoryX>*
