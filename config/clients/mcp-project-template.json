@@ -6,7 +6,8 @@
       "namespace": "project:PROJEKTNAME",
       "sharedNamespaces": ["global"],
       "autoRecall": true,
-      "autoStore": true
+      "autoStore": true,
+      "timeout": 45000
     }
   }
 }

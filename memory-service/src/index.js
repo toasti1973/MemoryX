@@ -11,6 +11,17 @@ const START_TIME = Date.now();
 
 app.use(express.json({ limit: '1mb' }));
 
+// Globaler Request-Timeout (verhindert Hänger bei Ollama-Ausfall)
+const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT_MS || '45000');
+app.use((req, res, next) => {
+  res.setTimeout(REQUEST_TIMEOUT, () => {
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Request timeout' });
+    }
+  });
+  next();
+});
+
 // ─── Health-Check ─────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
   const ollamaOk = await isOllamaReady();

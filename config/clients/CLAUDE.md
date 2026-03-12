@@ -1,5 +1,12 @@
 # Memory-System Anweisungen
 
+Die MCP-Tool-Namen richten sich nach dem Server-Namen in `.mcp.json`.
+Ist der Server dort als `memory-project` registriert, heißen die Tools:
+
+- `memory-project:recall` (POST `/mcp/recall`)
+- `memory-project:store` (POST `/mcp/store`)
+- `memory-project:feedback` (POST `/mcp/feedback`)
+
 ## Zu Beginn jeder Sitzung
 
 - Ruf `memory-project:recall` mit einer Beschreibung der aktuellen Aufgabe auf
@@ -8,13 +15,13 @@
 
 ## Während der Arbeit
 
-- Wenn du ein Problem löst, das du zuvor noch nicht gesehen hast: speichere die Lösung
+- Wenn du ein Problem löst, das du zuvor noch nicht gesehen hast: speichere via `memory-project:store`
 - Wenn du eine Entscheidung triffst, die das Projekt langfristig betrifft: speichere sie
 - Wenn ein Ansatz fehlschlägt: speichere auch das mit `outcome: failure`
 
 ## Am Ende jeder Sitzung
 
-Speichere eine abschließende Episode:
+Speichere eine abschließende Episode via `memory-project:store`:
 
 ```json
 {
@@ -27,5 +34,5 @@ Speichere eine abschließende Episode:
 
 ## Feedback geben
 
-Nach einem erfolgreichen Recall: Gib Feedback via `memory-project:feedback` mit `success: true`
-Nach einem schlechten Treffer: `success: false` — das verbessert zukünftige Recalls
+- Recall-Treffer war nützlich → `memory-project:feedback` mit `success: true`
+- Recall-Treffer war irrelevant → `memory-project:feedback` mit `success: false` — das verbessert zukünftige Recalls
