@@ -6,3 +6,5 @@ node_modules/
 caddy-root-ca.crt
 backups/
 data/
+.mcp.json
+.claude/

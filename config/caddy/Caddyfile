@@ -20,11 +20,16 @@
         -Server
     }
 
-    # ── MCP-Endpunkt ─────────────────────────────────────────────────────
+    # ── MCP-Endpunkt (Streamable HTTP via auth-proxy → memcp) ────────────
     handle /mcp* {
-        reverse_proxy memory-service:3457 {
+        reverse_proxy auth-proxy:4000 {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
+            flush_interval -1
+            transport http {
+                read_timeout 300s
+                write_timeout 300s
+            }
         }
     }
 
@@ -49,7 +54,7 @@
 
     # ── Health-Check (kein Auth) ──────────────────────────────────────────
     handle /health {
-        reverse_proxy memory-service:3457
+        reverse_proxy auth-proxy:4000
     }
 
     # ── Root Redirect zu Admin ────────────────────────────────────────────

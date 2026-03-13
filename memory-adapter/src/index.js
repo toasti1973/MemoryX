@@ -1,7 +1,7 @@
 'use strict';
 const cron = require('node-cron');
 
-const MEMORY_SVC_URL    = process.env.MEMORY_SERVICE_URL || 'http://memory-service:3457';
+const MEMCP_URL         = process.env.MEMCP_URL          || 'http://memcp:3457';
 const MEMORY_API_KEY    = process.env.MEMORY_API_KEY     || '';
 const ADAPTER_SOURCE    = process.env.ADAPTER_SOURCE     || 'nextcloud';
 const ADAPTER_API_URL   = process.env.ADAPTER_API_URL    || '';
@@ -16,7 +16,7 @@ function log(msg) {
 }
 
 async function storeMemory(experience, namespace) {
-  const res = await fetch(`${MEMORY_SVC_URL}/mcp/store`, {
+  const res = await fetch(`${MEMCP_URL}/mcp/store`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-Key': MEMORY_API_KEY },
     body: JSON.stringify({ experience, namespace }),

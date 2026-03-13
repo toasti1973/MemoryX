@@ -9,9 +9,9 @@
 
 ## Was du tun wirst
 
-Du integrierst das **MemoryX**-System in ein bestehendes Projekt. Das bedeutet:
+Du integrierst das **MemoryX v2**-System (basierend auf **memcp**) in ein bestehendes Projekt. Das bedeutet:
 
-1. Du erzeugst eine `.mcp.json` im Projektordner → verbindet Claude Code mit dem Memory-Server
+1. Du erzeugst eine `.mcp.json` im Projektordner → verbindet Claude Code mit dem MCP-Memory-Server
 2. Du erzeugst oder erweiterst eine `CLAUDE.md` → gibt dir (Claude) Anweisungen für jede Sitzung
 3. Du prüfst, ob der Memory-Server erreichbar ist → Health-Check
 4. Optional: Du fügst einen projektspezifischen API-Key im Admin-Dashboard an
@@ -20,11 +20,27 @@ Du veränderst **keinen** bestehenden Code. Du fügst nur Konfigurationsdateien 
 
 ---
 
+## Architektur-Überblick
+
+```text
+Claude Code ──HTTPS──▶ Caddy ──▶ auth-proxy (API-Key) ──▶ memcp (FastMCP)
+                         │                                       │
+                         ▼                                       ▼
+                    Admin-UI/API                          graph.db + Ollama
+```
+
+- **memcp**: Python MCP-Server (FastMCP), 24 Tools, MAGMA-Graph, 5-Tier-Suche
+- **auth-proxy**: API-Key-Validierung, Rate-Limiting, Access-Logging
+- **Caddy**: TLS-Terminierung, Reverse-Proxy, Basic-Auth für Admin
+- **Ollama**: Lokales Embedding (nomic-embed-text)
+
+---
+
 ## Voraussetzungen — Zuerst prüfen
 
 Bevor du irgendetwas schreibst, stelle diese Fragen an den Nutzer (alle auf einmal, in einer Nachricht):
 
-```
+```text
 Ich benötige drei kurze Informationen für die MemoryX-Integration:
 
 1. Unter welcher URL läuft der Memory-Server?
@@ -33,8 +49,8 @@ Ich benötige drei kurze Informationen für die MemoryX-Integration:
 2. Welchen API-Key soll ich für dieses Projekt verwenden?
    (Aus dem Admin-Dashboard unter https://memory.local/admin/keys.html)
 
-3. Wie soll der Namespace für dieses Projekt heißen?
-   (Beispiel: "project:meinprojekt" — empfohlen: "project:" + Projektname in Kleinbuchstaben)
+3. Wie soll der Projektname heißen?
+   (Beispiel: "meinprojekt" — wird als MCP-Kontext verwendet)
 ```
 
 Warte auf die Antworten. Fahre erst dann fort.
@@ -53,16 +69,17 @@ Erstelle `.mcp.json` im Projektroot:
 {
   "mcpServers": {
     "memory": {
-      "url": "<URL_VOM_NUTZER>/mcp",
-      "apiKey": "<API_KEY_VOM_NUTZER>",
-      "namespace": "<NAMESPACE_VOM_NUTZER>",
-      "sharedNamespaces": ["global"],
-      "autoRecall": true,
-      "autoStore": true
+      "type": "sse",
+      "url": "<URL_VOM_NUTZER>/mcp/",
+      "headers": {
+        "X-API-Key": "<API_KEY_VOM_NUTZER>"
+      }
     }
   }
 }
 ```
+
+> **Wichtig:** Die URL muss mit `/mcp/` (Trailing-Slash) enden.
 
 **Fall B — Datei existiert bereits:**
 
@@ -77,7 +94,7 @@ Prüfe, ob im Projektverzeichnis bereits eine `CLAUDE.md` existiert.
 
 **Fall A — Datei existiert nicht:**
 
-Erstelle `CLAUDE.md` mit folgendem Inhalt (passe `<NAMESPACE>` an):
+Erstelle `CLAUDE.md` mit folgendem Inhalt:
 
 ```markdown
 # Projekt-Anweisungen für Claude
@@ -85,33 +102,21 @@ Erstelle `CLAUDE.md` mit folgendem Inhalt (passe `<NAMESPACE>` an):
 ## Memory-System (MemoryX)
 
 ### Zu Beginn jeder Sitzung
-- Rufe `memory:recall` mit einer kurzen Beschreibung der aktuellen Aufgabe auf
-- Lies die zurückgegebenen Regeln und Episoden
-- Beachte besonders `outcome: failure`-Einträge — sie enthalten Warnungen
+- Rufe `memory:memcp_recall` mit einer Beschreibung der aktuellen Aufgabe auf
+- Lies die zurückgegebenen Erinnerungen sorgfältig
+- Beachte besonders Einträge mit negativem Outcome — sie enthalten Warnungen
 
 ### Während der Arbeit
-- Lösung für ein neues Problem gefunden → speichern
+- Lösung für ein neues Problem gefunden → `memory:memcp_remember`
 - Architekturentscheidung getroffen → speichern
-- Ansatz ist fehlgeschlagen → mit `outcome: failure` speichern
+- Ansatz ist fehlgeschlagen → ebenfalls speichern (mit Fehlerkontext)
 
 ### Am Ende jeder Sitzung
-Speichere eine Abschlussepisode:
-```json
-{
-  "task_category": "session-summary",
-  "outcome": "success",
-  "context_summary": "Was wurde erledigt",
-  "learnings": "Wichtige Erkenntnisse und offene Punkte"
-}
-```
+Speichere eine Zusammenfassung via `memory:memcp_remember`.
 
 ### Feedback
-- Recall-Treffer war nützlich → `memory:feedback` mit `success: true`
-- Recall-Treffer war irrelevant → `memory:feedback` mit `success: false`
-
-### Namespace
-Dieses Projekt verwendet Namespace: `<NAMESPACE>`
-Globales Wissen (Namespace `global`) wird automatisch mitgelesen.
+- Recall-Treffer war nützlich → `memory:memcp_reinforce` mit positivem Feedback
+- Recall-Treffer war irrelevant → `memory:memcp_reinforce` mit negativem Feedback
 ```
 
 **Fall B — Datei existiert bereits:**
@@ -130,18 +135,16 @@ curl -sk <URL_VOM_NUTZER>/health
 ```
 
 **Erwartete Antwort:**
+
 ```json
-{"status":"ok","db":"ok","ollama":"ok","uptime":13682,"version":"1.0.0"}
+{"status":"ok","memcp":"ok","keys_db":"ok"}
 ```
 
-> Hinweis: `db: ok` = SQLite erreichbar, `ollama: ok` = Embedding-Modell geladen.
-> Wenn `status: ok`, läuft der gesamte Stack korrekt.
+> `memcp: ok` = MCP-Server erreichbar, `keys_db: ok` = API-Key-Datenbank vorhanden.
 
 **Wenn `status: ok`:** Schreib dem Nutzer: "Server ist erreichbar, Integration abgeschlossen."
 
 **Wenn der Aufruf fehlschlägt:**
-
-Prüfe folgende Ursachen und kommuniziere sie:
 
 | Fehler | Mögliche Ursache | Lösung |
 |--------|-----------------|--------|
@@ -149,7 +152,7 @@ Prüfe folgende Ursachen und kommuniziere sie:
 | `curl: (60) SSL certificate problem` | Caddy CA nicht importiert | Root-CA-Zertifikat importieren (siehe unten) |
 | `curl: (7) Failed to connect` | Stack läuft nicht | `docker compose ps` auf dem Server prüfen |
 | `tlsv1 alert internal error` | Falscher Hostname | Nicht `localhost` verwenden — nur `memory.local` |
-| `{"status":"degraded"}` | Ollama lädt noch | 2 Minuten warten, erneut prüfen |
+| `{"status":"degraded"}` | memcp oder Ollama nicht bereit | 2 Minuten warten, erneut prüfen |
 
 **Hosts-Eintrag setzen (einmalig pro Client-Rechner):**
 
@@ -177,41 +180,25 @@ docker cp memory-caddy:/data/caddy/pki/authorities/local/root.crt /opt/MemoryX/c
 
 ## Schritt 4 — Ersten Recall testen (optional aber empfohlen)
 
-Wenn der Health-Check erfolgreich war, führe einen Test-Recall durch:
+Wenn der Health-Check erfolgreich war, teste die MCP-Verbindung.
+Da memcp echtes MCP-Protokoll (JSON-RPC 2.0) spricht, ist ein einfacher curl-Test nicht direkt möglich.
 
-```bash
-curl -sk -X POST <URL_VOM_NUTZER>/mcp/recall \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: <API_KEY_VOM_NUTZER>" \
-  -d '{"task_description": "Installationstest", "namespace": "<NAMESPACE_VOM_NUTZER>"}'
-```
+Stattdessen: VS Code neu laden und prüfen, ob die MCP-Tools verfügbar sind:
 
-**Erwartete Antwort bei leerem Memory:**
-```json
-{"context":"","episodeCount":0,"ruleCount":0,"tokenEstimate":0,"namespace":"..."}
-```
-
-Das ist korrekt — das Memory ist neu und noch leer. Nach der ersten Arbeitssitzung werden Episoden gespeichert.
+1. `Ctrl+Shift+P` → "Reload Window"
+2. In einer neuen Claude-Sitzung: `memory:memcp_ping` aufrufen
+3. Wenn eine Antwort kommt, ist die Verbindung aktiv
 
 ---
 
-## Schritt 5 — Erste Episode speichern (Bootstrapping)
+## Schritt 5 — Erste Erinnerung speichern (Bootstrapping)
 
-Speichere eine Bootstrap-Episode, damit das Memory nicht leer beginnt:
+Speichere eine Bootstrap-Erinnerung über das MCP-Tool:
 
-```bash
-curl -sk -X POST <URL_VOM_NUTZER>/mcp/store \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: <API_KEY_VOM_NUTZER>" \
-  -d '{
-    "namespace": "<NAMESPACE_VOM_NUTZER>",
-    "experience": {
-      "task_category": "setup",
-      "outcome": "success",
-      "context_summary": "MemoryX wurde in dieses Projekt integriert. MCP-Verbindung konfiguriert.",
-      "learnings": "Namespace: <NAMESPACE_VOM_NUTZER>. Memory-Server: <URL_VOM_NUTZER>. Integration abgeschlossen am <HEUTIGES_DATUM>."
-    }
-  }'
+Rufe `memory:memcp_remember` auf mit:
+
+```text
+MemoryX wurde in dieses Projekt integriert. MCP-Verbindung konfiguriert am <HEUTIGES_DATUM>.
 ```
 
 ---
@@ -220,23 +207,22 @@ curl -sk -X POST <URL_VOM_NUTZER>/mcp/store \
 
 Berichte dem Nutzer nach der Integration:
 
-```
-MemoryX wurde erfolgreich in dein Projekt integriert.
+```text
+MemoryX v2 wurde erfolgreich in dein Projekt integriert.
 
 Erstellte Dateien:
-- .mcp.json        → MCP-Verbindung zu <URL_VOM_NUTZER>/mcp
+- .mcp.json        → MCP-Verbindung zu <URL_VOM_NUTZER>/mcp/
 - CLAUDE.md        → Anweisungen für jede Sitzung
 
 Konfiguration:
-- Namespace:       <NAMESPACE>
-- Shared:          global
-- Auto-Recall:     aktiviert
-- Auto-Store:      aktiviert
+- Transport:       MCP über Streamable HTTP (SSE)
+- Auth:            API-Key via X-API-Key Header
+- Memory-Engine:   memcp (MAGMA-Graph, 24 Tools)
 
 Nächste Schritte:
 1. VS Code neu laden (Ctrl+Shift+P → "Reload Window")
 2. Neue Sitzung starten → erster automatischer Recall läuft
-3. Nach der Sitzung: Admin-Dashboard prüfen unter <URL_VOM_NUTZER>/admin/episodes.html
+3. Nach der Sitzung: Admin-Dashboard prüfen unter <URL_VOM_NUTZER>/admin/
 ```
 
 ---
@@ -246,81 +232,45 @@ Nächste Schritte:
 ### Der Nutzer hat noch keinen API-Key
 
 Anleitung geben:
-```
+
+```text
 1. Öffne https://memory.local/admin/keys.html
 2. Klicke "+ Neuer Key"
 3. Name: "project-<projektname>"
 4. Scope: "recall+store"
-5. Namespaces: "project:<projektname>,global"
+5. Namespaces: "*" (oder einschränken auf project:<projektname>)
 6. Erstellen → Key kopieren und mir mitteilen
 ```
 
-### API-Key funktioniert nicht (401 oder leere Antwort)
+### API-Key funktioniert nicht (401 oder 403)
 
-API-Keys werden im Admin-Dashboard erstellt (`admin.db`) und müssen in `memory.db` synchronisiert werden.
-Falls die Synchronisation fehlschlägt (z.B. weil das Volume read-only war), Key manuell synchen:
+Der auth-proxy validiert API-Keys gegen die `admin.db`. Prüfen:
 
 ```bash
+# Auf dem Server: Prüfen ob der Key in der DB existiert und aktiv ist
 docker exec memory-admin-api node -e "
 const Database = require('better-sqlite3');
-const adminDb = new Database('/data/admin.db');
-const memDb = new Database('/memory/memory.db');
-const rows = adminDb.prepare('SELECT id, name, key_value, scope, namespaces, rate_limit, expires_at FROM api_keys WHERE active = 1').all();
-rows.forEach(r => {
-  memDb.prepare('INSERT OR REPLACE INTO api_keys (id, name, key_hash, scope, namespaces, rate_limit, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(r.id, r.name, r.key_value, r.scope, r.namespaces, r.rate_limit, r.expires_at);
-  console.log('Synced:', r.name);
-});
-adminDb.close(); memDb.close();
+const db = new Database('/data/admin.db');
+const keys = db.prepare('SELECT name, active, expires_at FROM api_keys').all();
+console.table(keys);
+db.close();
 "
 ```
 
-Falls `SQLITE_READONLY`-Fehler: Container neu erstellen (nicht nur restart):
+### MCP-Tools erscheinen nicht in VS Code
 
-```bash
-docker compose up -d --force-recreate admin-api
-```
-
-### Recall gibt 0 Episoden zurück obwohl welche gespeichert sind
-
-Ursache: `SIMILARITY_THRESHOLD` in der `.env` auf dem Server ist zu hoch (Default war 0.75).
-Für das Embedding-Modell `nomic-embed-text` ist 0.35 optimal:
-
-```bash
-# Auf dem Server prüfen und anpassen
-grep SIMILARITY /opt/MemoryX/.env
-sed -i 's/SIMILARITY_THRESHOLD=0.75/SIMILARITY_THRESHOLD=0.35/' /opt/MemoryX/.env
-
-# WICHTIG: "docker compose up -d" statt "restart" — restart liest .env NICHT neu ein!
-docker compose up -d memory-service
-```
-
-### Das Admin-Passwort funktioniert nicht
-
-Das Admin-Passwort wird als Bcrypt-Hash in der `.env` gespeichert. Vorgehen:
-
-```bash
-# Neuen Hash generieren
-docker run --rm caddy:2-alpine caddy hash-password --plaintext 'MeinPasswort'
-# Ausgabe z.B.: $2a$14$...
-
-# In .env eintragen (mit einfachen Anführungszeichen — wichtig für Sonderzeichen!)
-ADMIN_PASSWORD_HASH='$2a$14$...'
-
-# Stack neu starten
-docker compose restart caddy
-```
-
-> **Wichtig:** Einfache Anführungszeichen `'...'` in der `.env` verwenden.
-> Doppelte Anführungszeichen können `$`-Zeichen im Hash falsch interpretieren.
+1. Prüfe `.mcp.json` — URL muss mit `/mcp/` (Trailing-Slash) enden
+2. Prüfe ob `type: "sse"` gesetzt ist
+3. VS Code komplett neu laden (nicht nur Fenster)
+4. Health-Check erneut prüfen: `curl -sk https://memory.local/health`
 
 ### Der Nutzer möchte mehrere Projekte verbinden
 
 Für jedes Projekt:
-- Eigener Namespace: `project:<name>`
+
 - Eigener API-Key (aus Sicherheitsgründen getrennt)
 - Eigene `.mcp.json` im jeweiligen Projektordner
-
-Der Namespace `global` wird in allen Projekten geteilt — globales Wissen ist überall verfügbar.
+- memcp unterstützt Multi-Project nativ (Tool: `memory:memcp_projects`)
 
 ### Der Nutzer möchte das Memory auch in der Desktop App nutzen
 
@@ -332,31 +282,12 @@ Zeige folgende Konfiguration:
 // Linux:   ~/.config/Claude/claude_desktop_config.json
 {
   "mcpServers": {
-    "memory-desktop": {
-      "url": "https://memory.local/mcp",
-      "apiKey": "<DESKTOP_API_KEY>",
-      "namespace": "desktop",
-      "sharedNamespaces": ["global"],
-      "autoRecall": true,
-      "autoStore": true
-    }
-  }
-}
-```
-
-### Der Nutzer möchte das Memory auch in der CLI nutzen
-
-```json
-// ~/.claude/config.json (oder claude settings --add-mcp)
-{
-  "mcpServers": {
-    "memory-cli": {
-      "url": "https://memory.local/mcp",
-      "apiKey": "<CLI_API_KEY>",
-      "namespace": "cli",
-      "sharedNamespaces": ["global"],
-      "autoRecall": true,
-      "autoStore": true
+    "memory": {
+      "type": "sse",
+      "url": "https://memory.local/mcp/",
+      "headers": {
+        "X-API-Key": "<DESKTOP_API_KEY>"
+      }
     }
   }
 }
@@ -370,11 +301,6 @@ cd /opt/MemoryX
 ```
 
 Das Skript erkennt automatisch, welche Services geändert wurden, und baut nur diese neu.
-Bei lokalen Änderungen zuerst stashen:
-
-```bash
-git stash && ./scripts/update.sh
-```
 
 ---
 
@@ -392,66 +318,76 @@ Das Dashboard ist erreichbar unter `https://memory.local/admin/` (mit Trailing-S
 | System | `/admin/system.html` | Logs, Backup, GC, Destillierung |
 
 > Hinweis: Die URL muss mit `/admin/` (Trailing-Slash) aufgerufen werden.
-> `/admin` ohne Slash kann zu leeren Seiten führen.
+
+---
+
+## MCP-Tool Referenz (für dich als Claude)
+
+Sobald die Integration aktiv ist, stehen dir 24 memcp-Tools zur Verfügung.
+Die wichtigsten für den Alltag:
+
+### Kern-Tools
+
+| Tool | Beschreibung |
+| ------ | ------------- |
+| `memory:memcp_ping` | Verbindungstest |
+| `memory:memcp_remember` | Erfahrung/Wissen speichern |
+| `memory:memcp_recall` | Relevante Erinnerungen abrufen |
+| `memory:memcp_search` | Gezielte Suche (keyword, BM25, fuzzy, semantic, hybrid) |
+| `memory:memcp_forget` | Eintrag löschen |
+| `memory:memcp_reinforce` | Feedback geben (verbessert zukünftige Recalls) |
+| `memory:memcp_status` | Systemstatus und Statistiken |
+
+### Kontext-Tools
+
+| Tool | Beschreibung |
+| ------ | ------------- |
+| `memory:memcp_load_context` | Große Dokumente laden und chunken |
+| `memory:memcp_inspect_context` | Geladenen Kontext inspizieren |
+| `memory:memcp_get_context` | Kontext abrufen |
+| `memory:memcp_chunk_context` | Kontext in Chunks aufteilen |
+| `memory:memcp_peek_chunk` | Einzelnen Chunk ansehen |
+| `memory:memcp_filter_context` | Kontext filtern |
+| `memory:memcp_list_contexts` | Alle geladenen Kontexte auflisten |
+| `memory:memcp_clear_context` | Kontext freigeben |
+
+### Graph- und Projekt-Tools
+
+| Tool | Beschreibung |
+| ------ | ------------- |
+| `memory:memcp_related` | Graph-Beziehungen erkunden (MAGMA) |
+| `memory:memcp_graph_stats` | Graph-Statistiken |
+| `memory:memcp_projects` | Alle Projekte auflisten |
+| `memory:memcp_sessions` | Session-Historie |
+
+### Lifecycle-Tools
+
+| Tool | Beschreibung |
+| ------ | ------------- |
+| `memory:memcp_retention_preview` | Vorschau: was würde bereinigt |
+| `memory:memcp_retention_run` | Retention-Policy ausführen |
+| `memory:memcp_restore` | Gelöschten Eintrag wiederherstellen |
+| `memory:memcp_consolidation_preview` | Vorschau: Konsolidierung |
+| `memory:memcp_consolidate` | Erinnerungen konsolidieren |
 
 ---
 
 ## Deaktivierung und Deinstallation
 
-### Nur für ein Projekt deaktivieren (MCP-Verbindung trennen)
+### Nur für ein Projekt deaktivieren
 
-Entferne den `memory`-Eintrag aus der `.mcp.json` im Projektordner:
-
-```json
-// Vorher:
-{
-  "mcpServers": {
-    "memory": { ... }
-  }
-}
-
-// Nachher (Eintrag entfernt):
-{
-  "mcpServers": {}
-}
-```
-
-Alternativ: die gesamte `.mcp.json` löschen, falls keine anderen MCP-Server konfiguriert sind.
-
+Entferne den `memory`-Eintrag aus der `.mcp.json` im Projektordner.
 Danach VS Code neu laden (`Ctrl+Shift+P → "Reload Window"`).
 
-Die gespeicherten Episoden und Regeln bleiben auf dem Server erhalten.
+Die gespeicherten Erinnerungen bleiben auf dem Server erhalten.
 
----
-
-### API-Key für ein Projekt deaktivieren
+### API-Key deaktivieren
 
 ```text
 1. Öffne https://memory.local/admin/keys.html
 2. Klicke auf den Key, der deaktiviert werden soll
 3. Klicke "Löschen" — der Key ist sofort ungültig
 ```
-
-Alle MCP-Verbindungen, die diesen Key verwenden, schlagen danach fehl.
-
----
-
-### Memory-Daten eines Projekts löschen (Namespace bereinigen)
-
-```bash
-# Alle Episoden eines Namespace löschen
-curl -sk -X DELETE "https://memory.local/api/episodes?namespace=project:meinprojekt" \
-  -H "X-Admin-Key: <ADMIN_API_KEY>"
-
-# Alle Regeln eines Namespace löschen
-curl -sk -X DELETE "https://memory.local/api/rules?namespace=project:meinprojekt" \
-  -H "X-Admin-Key: <ADMIN_API_KEY>"
-```
-
-Alternativ über das Admin-Dashboard unter `/admin/episodes.html` und `/admin/rules.html`
-mit dem Namespace-Filter und der Löschen-Funktion.
-
----
 
 ### Vollständige Deinstallation des Servers
 
@@ -463,7 +399,7 @@ docker compose down
 # 2. Alle Daten und Volumes löschen (UNWIDERRUFLICH)
 docker compose down -v
 
-# 3. Docker-Images entfernen (optional, gibt Speicher frei)
+# 3. Docker-Images entfernen (optional)
 docker rmi $(docker images | grep memory | awk '{print $3}')
 
 # 4. Projektverzeichnis löschen
@@ -473,7 +409,7 @@ rm -rf /opt/MemoryX
 sudo sed -i '/memory.local/d' /etc/hosts
 ```
 
-> **Warnung:** `docker compose down -v` löscht alle gespeicherten Episoden, Regeln
+> **Warnung:** `docker compose down -v` löscht alle Erinnerungen, Regeln
 > und API-Keys unwiderruflich. Vorher ein Backup erstellen:
 
 ```bash
@@ -482,53 +418,6 @@ sudo sed -i '/memory.local/d' /etc/hosts
 
 ---
 
-## MCP-Tool Referenz (für dich als Claude)
-
-Sobald die Integration aktiv ist, stehen dir diese Tools zur Verfügung:
-
-### `memory:recall`
-```json
-{
-  "task_description": "Beschreibung der aktuellen Aufgabe",
-  "namespace": "project:meinprojekt",
-  "shared_namespaces": ["global"]
-}
-```
-Gibt zurück: `context` (formatierter Text), `episodeCount`, `ruleCount`, `tokenEstimate`
-
-### `memory:store`
-```json
-{
-  "namespace": "project:meinprojekt",
-  "experience": {
-    "task_category": "bug-fix | feature | refactor | architecture | session-summary | setup",
-    "outcome": "success | failure | partial",
-    "context_summary": "Was war die Aufgabe und der Kontext (max. 300 Zeichen)",
-    "learnings": "Was wurde gelernt, was war die Lösung (max. 500 Zeichen)"
-  }
-}
-```
-
-### `memory:feedback`
-```json
-{
-  "episode_id": "<id-aus-recall>",
-  "success": true
-}
-```
-
----
-
-## Qualitätskriterien — Was eine gute Episode ausmacht
-
-| Kriterium | Gut | Schlecht |
-|-----------|-----|----------|
-| `task_category` | Konkret: `"auth-bug-jwt"` | Zu allgemein: `"bug"` |
-| `context_summary` | Enthält das Problem: `"JWT-Token wurde nach 1h ungültig obwohl 24h gesetzt"` | Zu vage: `"Auth-Problem"` |
-| `learnings` | Enthält die Lösung: `"CLOCK_SKEW Umgebungsvariable auf 60 gesetzt"` | Zu vage: `"Einstellung geändert"` |
-| `outcome` | Korrekt gesetzt: `failure` wenn der Ansatz fehlschlug | Immer `success` auch bei Fehlern |
-
----
-
-*MemoryX · AI-Installationsanleitung · v1.3 · 2026-03-12*
-*Quelle: https://github.com/toasti1973/MemoryX*
+*MemoryX v2 · AI-Installationsanleitung · v2.0 · 2026-03-12*
+*Quelle: <https://github.com/toasti1973/MemoryX>*
+*MCP-Engine: memcp (MAGMA-Graph, FastMCP)*

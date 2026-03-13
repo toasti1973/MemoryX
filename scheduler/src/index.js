@@ -1,18 +1,17 @@
 'use strict';
 const cron     = require('node-cron');
+const crypto   = require('crypto');
 const Database = require('better-sqlite3');
 const fs       = require('fs');
 const path     = require('path');
 
-const DB_PATH          = process.env.DB_PATH          || '/data/memory.db';
+const DB_PATH          = process.env.DB_PATH          || '/data/graph.db';
 const ADMIN_DB_PATH    = process.env.ADMIN_DB_PATH    || '/admin/admin.db';
 const BACKUP_PATH      = process.env.BACKUP_PATH      || '/backups';
-const ADMIN_API_URL    = process.env.ADMIN_API_URL    || 'http://admin-api:3459';
-const MEMORY_SVC_URL   = process.env.MEMORY_SERVICE_URL || 'http://memory-service:3457';
-const ADMIN_API_KEY    = process.env.ADMIN_API_KEY    || '';
+const MEMCP_URL        = process.env.MEMCP_URL         || 'http://memcp:3457';
 const DECAY_FACTOR     = parseFloat(process.env.DECAY_FACTOR     || '0.002');
 const MAX_DB_SIZE_MB   = parseInt(process.env.MAX_DB_SIZE_MB     || '500');
-const RULE_MIN_EPS     = parseInt(process.env.RULE_MIN_EPISODES  || '3');
+const RULE_MIN_NODES   = parseInt(process.env.RULE_MIN_EPISODES  || '3');
 const KEY_CLEANUP_DAYS = parseInt(process.env.KEY_CLEANUP_DAYS   || '7');
 
 function log(job, msg) {
@@ -20,7 +19,7 @@ function log(job, msg) {
 }
 
 function getDb() {
-  if (!fs.existsSync(DB_PATH)) { log('db', 'DB nicht gefunden, warte...'); return null; }
+  if (!fs.existsSync(DB_PATH)) { log('db', 'graph.db nicht gefunden, warte...'); return null; }
   return new Database(DB_PATH);
 }
 
@@ -30,41 +29,62 @@ function runGC() {
   const db = getDb();
   if (!db) return;
   try {
-    const weakDel = db.prepare('DELETE FROM episodes WHERE quality_score < 0.1').run();
-    log('gc', `Schwache Episoden gelöscht: ${weakDel.changes}`);
+    const weakDel = db.prepare('DELETE FROM nodes WHERE importance < 0.1').run();
+    log('gc', `Schwache Insights geloescht: ${weakDel.changes}`);
+
+    const orphans = db.prepare(`
+      DELETE FROM edges WHERE source_id NOT IN (SELECT id FROM nodes)
+         OR target_id NOT IN (SELECT id FROM nodes)
+    `).run();
+    if (orphans.changes > 0) log('gc', `Verwaiste Edges geloescht: ${orphans.changes}`);
+
+    try {
+      const orphanEntities = db.prepare(
+        'DELETE FROM entity_index WHERE node_id NOT IN (SELECT id FROM nodes)'
+      ).run();
+      if (orphanEntities.changes > 0) log('gc', `Verwaiste Entity-Eintraege geloescht: ${orphanEntities.changes}`);
+    } catch {}
 
     const dbSize = fs.statSync(DB_PATH).size / 1024 / 1024;
     if (dbSize > MAX_DB_SIZE_MB) {
-      log('gc', `DB zu groß (${dbSize.toFixed(1)} MB > ${MAX_DB_SIZE_MB} MB), lösche älteste Episoden...`);
+      log('gc', `DB zu gross (${dbSize.toFixed(1)} MB > ${MAX_DB_SIZE_MB} MB), loesche aelteste Insights...`);
       const oldDel = db.prepare(`
-        DELETE FROM episodes WHERE id IN (
-          SELECT id FROM episodes ORDER BY created_at ASC LIMIT 100
+        DELETE FROM nodes WHERE id IN (
+          SELECT id FROM nodes ORDER BY created_at ASC LIMIT 100
         )
       `).run();
-      log('gc', `Alte Episoden gelöscht: ${oldDel.changes}`);
+      log('gc', `Alte Insights geloescht: ${oldDel.changes}`);
     }
 
     db.pragma('VACUUM');
     const newSize = fs.statSync(DB_PATH).size / 1024 / 1024;
-    log('gc', `GC abgeschlossen. DB-Größe: ${newSize.toFixed(2)} MB`);
+    log('gc', `GC abgeschlossen. DB-Groesse: ${newSize.toFixed(2)} MB`);
   } finally {
     db.close();
   }
 }
 
-// ─── Score-Decay ──────────────────────────────────────────────────────────
+// ─── Importance-Decay ────────────────────────────────────────────────────
 function runDecay() {
-  log('decay', 'Starte Score-Decay...');
+  log('decay', 'Starte Importance-Decay...');
   const db = getDb();
   if (!db) return;
   try {
-    const result = db.prepare(`
-      UPDATE episodes
-      SET recency_score = MAX(0, recency_score - ?),
-          updated_at = unixepoch()
-      WHERE recency_score > 0
-    `).run(DECAY_FACTOR);
-    log('decay', `Score-Decay angewendet auf ${result.changes} Episoden (Faktor: ${DECAY_FACTOR})`);
+    let result;
+    try {
+      result = db.prepare(`
+        UPDATE nodes
+        SET effective_importance = MAX(0, effective_importance - ?)
+        WHERE effective_importance > 0
+      `).run(DECAY_FACTOR);
+    } catch {
+      result = db.prepare(`
+        UPDATE nodes
+        SET importance = MAX(0.05, importance - ?)
+        WHERE importance > 0.05
+      `).run(DECAY_FACTOR);
+    }
+    log('decay', `Decay angewendet auf ${result.changes} Insights (Faktor: ${DECAY_FACTOR})`);
   } finally {
     db.close();
   }
@@ -78,82 +98,109 @@ async function runBackup() {
   try {
     fs.mkdirSync(BACKUP_PATH, { recursive: true });
     const ts   = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-    const dest = path.join(BACKUP_PATH, `memory-${ts}.db`);
+    const dest = path.join(BACKUP_PATH, `graph-${ts}.db`);
     await db.backup(dest);
     const sizeMB = (fs.statSync(dest).size / 1024 / 1024).toFixed(2);
     log('backup', `Backup erstellt: ${dest} (${sizeMB} MB)`);
 
-    // Alte Backups bereinigen (nur letzte 7 behalten)
     const backups = fs.readdirSync(BACKUP_PATH)
-      .filter(f => f.startsWith('memory-') && f.endsWith('.db'))
+      .filter(f => f.startsWith('graph-') && f.endsWith('.db'))
       .sort().reverse();
     backups.slice(7).forEach(f => {
       fs.unlinkSync(path.join(BACKUP_PATH, f));
-      log('backup', `Altes Backup gelöscht: ${f}`);
+      log('backup', `Altes Backup geloescht: ${f}`);
     });
   } finally {
     db.close();
   }
 }
 
-// ─── Destillierung (Episoden → Regeln) ────────────────────────────────────
+// ─── Destillierung (Insights → Regeln in admin.db) ──────────────────────
 function runDistillation() {
   log('distill', 'Starte Destillierung...');
   const db = getDb();
   if (!db) return;
+
+  if (!fs.existsSync(ADMIN_DB_PATH)) {
+    log('distill', 'Admin-DB nicht gefunden, ueberspringe.');
+    db.close();
+    return;
+  }
+
+  const adminDb = new Database(ADMIN_DB_PATH);
+  adminDb.pragma('journal_mode = WAL');
+  adminDb.exec(`
+    CREATE TABLE IF NOT EXISTS rules (
+      id             TEXT PRIMARY KEY,
+      project        TEXT NOT NULL DEFAULT '',
+      category       TEXT NOT NULL DEFAULT '',
+      rule_text      TEXT NOT NULL,
+      confidence     REAL NOT NULL DEFAULT 0.5,
+      source_count   INTEGER NOT NULL DEFAULT 0,
+      confirmed      INTEGER NOT NULL DEFAULT 0,
+      apply_count    INTEGER NOT NULL DEFAULT 0,
+      created_at     INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `);
+
   try {
-    // Episoden nach Kategorie + Namespace gruppieren
     const categories = db.prepare(`
-      SELECT namespace, task_category, COUNT(*) as cnt, AVG(quality_score) as avg_score
-      FROM episodes
-      WHERE outcome = 'success'
-      GROUP BY namespace, task_category
+      SELECT project, category, COUNT(*) as cnt, AVG(importance) as avg_imp
+      FROM nodes
+      WHERE category IS NOT NULL AND category != ''
+      GROUP BY project, category
       HAVING cnt >= ?
-    `).all(RULE_MIN_EPS);
+    `).all(RULE_MIN_NODES);
 
     let created = 0;
     for (const cat of categories) {
-      // Bereits existierende Regel prüfen
-      const existing = db.prepare(`
-        SELECT id FROM rules
-        WHERE namespace = ? AND category = ?
-        LIMIT 1
-      `).get(cat.namespace, cat.task_category);
+      const proj = cat.project || '';
+      const existing = adminDb.prepare(
+        'SELECT id FROM rules WHERE project = ? AND category = ? LIMIT 1'
+      ).get(proj, cat.category);
 
       if (!existing) {
-        const episodes = db.prepare(`
-          SELECT learnings FROM episodes
-          WHERE namespace = ? AND task_category = ? AND outcome = 'success'
-          ORDER BY quality_score DESC LIMIT 5
-        `).all(cat.namespace, cat.task_category);
+        const insights = db.prepare(`
+          SELECT content, summary FROM nodes
+          WHERE (project = ? OR (project IS NULL AND ? = ''))
+            AND category = ?
+          ORDER BY importance DESC LIMIT 5
+        `).all(proj, proj, cat.category);
 
-        const learnings = episodes.map(e => e.learnings).join(' | ');
-        const ruleText  = `Bei Aufgaben der Kategorie "${cat.task_category}": ${learnings.substring(0, 300)}`;
+        const summaries = insights
+          .map(n => n.summary || (n.content || '').substring(0, 200))
+          .filter(Boolean)
+          .join(' | ');
 
-        db.prepare(`
-          INSERT INTO rules (id, namespace, category, rule_text, confidence, source_episodes, confirmed)
-          VALUES (?, ?, ?, ?, ?, '[]', 0)
-        `).run(
-          require('crypto').randomUUID(),
-          cat.namespace,
-          cat.task_category,
-          ruleText,
-          Math.min(0.9, cat.avg_score)
-        );
-        created++;
+        if (summaries.length > 0) {
+          const ruleText = `Bei "${cat.category}"-Aufgaben${proj ? ` (${proj})` : ''}: ${summaries.substring(0, 500)}`;
+          adminDb.prepare(`
+            INSERT INTO rules (id, project, category, rule_text, confidence, source_count)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(
+            crypto.randomUUID(),
+            proj,
+            cat.category,
+            ruleText,
+            Math.min(0.9, cat.avg_imp || 0.5),
+            cat.cnt
+          );
+          created++;
+        }
       }
     }
     log('distill', `Destillierung abgeschlossen. ${created} neue Regeln erstellt.`);
   } finally {
     db.close();
+    adminDb.close();
   }
 }
 
-// ─── Key-Cleanup (widerrufene Keys endgültig löschen) ────────────────
+// ─── Key-Cleanup ─────────────────────────────────────────────────────────
 function runKeyCleanup() {
   log('key-cleanup', 'Starte Key-Cleanup...');
   if (!fs.existsSync(ADMIN_DB_PATH)) {
-    log('key-cleanup', 'Admin-DB nicht gefunden, überspringe.');
+    log('key-cleanup', 'Admin-DB nicht gefunden, ueberspringe.');
     return;
   }
   try {
@@ -163,28 +210,28 @@ function runKeyCleanup() {
       'DELETE FROM api_keys WHERE active = 0 AND revoked_at IS NOT NULL AND revoked_at < ?'
     ).run(cutoff);
     adminDb.close();
-    log('key-cleanup', `${deleted.changes} widerrufene Keys gelöscht (älter als ${KEY_CLEANUP_DAYS} Tage)`);
+    log('key-cleanup', `${deleted.changes} widerrufene Keys geloescht (aelter als ${KEY_CLEANUP_DAYS} Tage)`);
   } catch (err) {
     log('key-cleanup', `Fehler: ${err.message}`);
   }
 }
 
-// ─── Stündlicher Health-Report ─────────────────────────────────────────────
+// ─── Health-Report ───────────────────────────────────────────────────────
 async function runHealthReport() {
   try {
-    const r = await fetch(`${MEMORY_SVC_URL}/health`, { signal: AbortSignal.timeout(5000) });
-    const data = await r.json();
-    log('health', `Status: ${data.status} | DB: ${data.db} | Ollama: ${data.ollama} | Uptime: ${data.uptime}s`);
+    const r = await fetch(`${MEMCP_URL}/mcp/`, { signal: AbortSignal.timeout(5000) });
+    log('health', `memcp: ${r.status < 500 ? 'ok' : 'error'} (HTTP ${r.status})`);
   } catch (err) {
     log('health', `Health-Check fehlgeschlagen: ${err.message}`);
   }
 }
 
-// ─── Cron-Jobs registrieren ───────────────────────────────────────────────
+// ─── Cron-Jobs ──────────────────────────────────────────────────────────
 const GC_SCHEDULE      = process.env.GC_SCHEDULE      || '0 2 * * *';
 const DISTILL_SCHEDULE = process.env.DISTILL_SCHEDULE || '30 2 * * *';
 const BACKUP_SCHEDULE  = process.env.BACKUP_SCHEDULE  || '0 3 * * *';
 const DECAY_SCHEDULE   = process.env.DECAY_SCHEDULE   || '0 4 * * *';
+const TZ               = process.env.TZ               || 'Europe/Berlin';
 
 function safe(name, fn) {
   return async () => {
@@ -193,20 +240,21 @@ function safe(name, fn) {
   };
 }
 
-cron.schedule(GC_SCHEDULE,      safe('gc',          runGC),           { timezone: 'Europe/Berlin' });
-cron.schedule(DISTILL_SCHEDULE, safe('distill',     runDistillation), { timezone: 'Europe/Berlin' });
-cron.schedule(BACKUP_SCHEDULE,  safe('backup',      runBackup),       { timezone: 'Europe/Berlin' });
-cron.schedule(DECAY_SCHEDULE,   safe('decay',       runDecay),        { timezone: 'Europe/Berlin' });
-cron.schedule('30 4 * * *',     safe('key-cleanup', runKeyCleanup),   { timezone: 'Europe/Berlin' });
-cron.schedule('0 * * * *',      safe('health',      runHealthReport), { timezone: 'Europe/Berlin' });
+const cronOpts = { timezone: TZ };
+cron.schedule(GC_SCHEDULE,      safe('gc',          runGC),           cronOpts);
+cron.schedule(DISTILL_SCHEDULE, safe('distill',     runDistillation), cronOpts);
+cron.schedule(BACKUP_SCHEDULE,  safe('backup',      runBackup),       cronOpts);
+cron.schedule(DECAY_SCHEDULE,   safe('decay',       runDecay),        cronOpts);
+cron.schedule('30 4 * * *',     safe('key-cleanup', runKeyCleanup),   cronOpts);
+cron.schedule('0 * * * *',      safe('health',      runHealthReport), cronOpts);
 
-// ─── Startup ──────────────────────────────────────────────────────────────
-log('startup', 'Memory Scheduler gestartet');
+// ─── Startup ────────────────────────────────────────────────────────────
+log('startup', 'Memory Scheduler gestartet (memcp v2)');
+log('startup', `DB: ${DB_PATH} | TZ: ${TZ}`);
 log('startup', `GC: ${GC_SCHEDULE} | Destillierung: ${DISTILL_SCHEDULE} | Backup: ${BACKUP_SCHEDULE} | Decay: ${DECAY_SCHEDULE}`);
 
-// Beim Start: Ollama-Modell-Check
 setTimeout(async () => {
-  log('ollama-check', 'Prüfe Ollama-Modell...');
+  log('ollama-check', 'Pruefe Ollama-Modell...');
   const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://ollama:11434';
   const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'nomic-embed-text';
   try {
@@ -219,13 +267,13 @@ setTimeout(async () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: OLLAMA_MODEL, stream: false }),
-        signal: AbortSignal.timeout(300000), // 5 min
+        signal: AbortSignal.timeout(300000),
       });
       log('ollama-check', `Modell ${OLLAMA_MODEL} heruntergeladen`);
     } else {
-      log('ollama-check', `Modell ${OLLAMA_MODEL} ist verfügbar`);
+      log('ollama-check', `Modell ${OLLAMA_MODEL} ist verfuegbar`);
     }
   } catch (err) {
     log('ollama-check', `Fehler: ${err.message}`);
   }
-}, 15000); // 15 Sekunden nach Start
+}, 15000);

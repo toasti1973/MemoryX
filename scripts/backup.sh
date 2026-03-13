@@ -32,7 +32,7 @@ if curl -sf -X POST "https://${MEMORY_HOST}/api/backup" \
 else
   # Fallback: direkt aus Container
   echo "[backup] Fallback: direkte SQLite-Kopie..."
-  docker exec memory-service sh -c "cp /data/memory.db /tmp/backup.db"
-  docker cp memory-service:/tmp/backup.db "$DEST"
+  docker exec memory-memcp sh -c "cp /data/graph.db /tmp/backup.db"
+  docker cp memory-memcp:/tmp/backup.db "$DEST"
   echo "[backup] Backup erstellt: $DEST ($(du -h "$DEST" | cut -f1))"
 fi

@@ -78,7 +78,7 @@
           <tr>
             <th style="padding-left:24px">Kategorie</th>
             <th>Regel</th>
-            <th>Namespace</th>
+            <th>Projekt</th>
             <th>Konfidenz</th>
             <th>Angewendet</th>
             <th>Status</th>
@@ -127,7 +127,7 @@ async function load() {
           <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
                 title="${escHtml(r.rule_text)}">${escHtml(r.rule_text)}</span>
         </td>
-        <td><code>${escHtml(r.namespace)}</code></td>
+        <td><code>${escHtml(r.project) || '—'}</code></td>
         <td>
           <div class="score-bar">
             <div class="score-track"><div class="score-fill" style="width:${confPct}%;background:${confColor}"></div></div>

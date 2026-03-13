@@ -3,7 +3,8 @@ networks:
     driver: bridge
 
 volumes:
-  memory-data:
+  memcp-data:
+  memory-data:     # Legacy — bleibt fuer Migration, danach entfernbar
   ollama-models:
   caddy-certs:
   admin-data:
@@ -28,7 +29,7 @@ services:
     networks:
       - memory-net
     depends_on:
-      - memory-service
+      - auth-proxy
       - admin-api
       - admin-ui
     logging:
@@ -37,28 +38,54 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ── Kern MCP-Server ───────────────────────────────────────────────────────
-  memory-service:
+  # ── Auth Proxy (API-Key-Validierung vor memcp) ──────────────────────────
+  auth-proxy:
     build:
-      context: ./memory-service
+      context: ./auth-proxy
       dockerfile: Dockerfile
-    container_name: memory-service
+    container_name: memory-auth-proxy
+    restart: always
+    expose:
+      - "4000"
+    volumes:
+      - admin-data:/data/admin
+    environment:
+      - KEYS_DB=/data/admin/admin.db
+      - MEMCP_URL=http://memcp:3457
+      - AUTH_LOG_DB=/data/admin/auth_log.db
+      - RATE_LIMIT_DEFAULT=60
+    networks:
+      - memory-net
+    depends_on:
+      - memcp
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.5'
+
+  # ── memcp MCP-Server (ersetzt memory-service) ──────────────────────────
+  memcp:
+    build:
+      context: ./memcp-engine
+      dockerfile: Dockerfile
+    container_name: memory-memcp
     restart: always
     expose:
       - "3457"
     volumes:
-      - memory-data:/data
-      - ./config/memory-service:/app/config:ro
+      - memcp-data:/data
     environment:
-      - NODE_ENV=production
-      - DB_PATH=/data/memory.db
+      - MEMCP_TRANSPORT=http
+      - MEMCP_HOST=0.0.0.0
+      - MEMCP_PORT=3457
+      - MEMCP_DATA_DIR=/data
+      - MEMCP_EMBEDDING_PROVIDER=${MEMCP_EMBEDDING_PROVIDER:-ollama}
       - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-nomic-embed-text}
-      - MAX_RECALL_TOKENS=${MAX_RECALL_TOKENS:-450}
-      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.75}
-      - MAX_RESULTS_L2=${MAX_RESULTS_L2:-3}
-      - MAX_RULES_L3=${MAX_RULES_L3:-5}
-      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - MEMCP_SEARCH=${MEMCP_SEARCH:-hybrid}
+      - MEMCP_MAX_INSIGHTS=${MEMCP_MAX_INSIGHTS:-10000}
+      - MEMCP_HEBBIAN_ENABLED=true
     networks:
       - memory-net
     depends_on:
@@ -68,12 +95,6 @@ services:
         limits:
           memory: ${MEM_LIMIT_SERVICE:-512m}
           cpus: '${CPU_LIMIT_SERVICE:-1.0}'
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3457/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
 
   # ── Lokales Embedding ─────────────────────────────────────────────────────
   ollama:
@@ -109,17 +130,19 @@ services:
       - "3459"
     volumes:
       - admin-data:/data
-      - memory-data:/memory
+      - memcp-data:/memcp:ro
+      - memory-data:/memory:ro
       - backup-data:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - NODE_ENV=production
       - ADMIN_DB_PATH=/data/admin.db
-      - MEMORY_DB_PATH=/memory/memory.db
+      - MEMCP_DB_PATH=/memcp/graph.db
+      - AUTH_LOG_DB_PATH=/data/auth_log.db
       - BACKUP_PATH=/backups
-      - MEMORY_SERVICE_URL=http://memory-service:3457
+      - MEMCP_URL=http://memcp:3457
       - ADMIN_API_KEY=${ADMIN_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
+      - MEMORY_HOST=${MEMORY_HOST:-memory.local}
     networks:
       - memory-net
     deploy:
@@ -158,12 +181,13 @@ services:
     container_name: memory-scheduler
     restart: always
     volumes:
-      - memory-data:/data
+      - memcp-data:/data
+      - memory-data:/legacy:ro
       - admin-data:/admin
       - backup-data:/backups
       - ./config/scheduler:/app/config:ro
     environment:
-      - MEMORY_SERVICE_URL=http://memory-service:3457
+      - MEMCP_URL=http://memcp:3457
       - ADMIN_API_URL=http://admin-api:3459
       - ADMIN_API_KEY=${ADMIN_API_KEY}
       - ADMIN_DB_PATH=/admin/admin.db
@@ -176,11 +200,11 @@ services:
       - MAX_DB_SIZE_MB=${MAX_DB_SIZE_MB:-500}
       - KEY_CLEANUP_DAYS=${KEY_CLEANUP_DAYS:-7}
       - BACKUP_PATH=/backups
-      - DB_PATH=/data/memory.db
+      - DB_PATH=/data/graph.db
     networks:
       - memory-net
     depends_on:
-      - memory-service
+      - memcp
       - admin-api
     deploy:
       resources:
@@ -203,7 +227,7 @@ services:
     volumes:
       - ./config/adapter:/app/config:ro
     environment:
-      - MEMORY_SERVICE_URL=http://memory-service:3457
+      - MEMCP_URL=http://auth-proxy:4000
       - MEMORY_API_KEY=${ADAPTER_MEMORY_API_KEY}
       - ADAPTER_SOURCE=${ADAPTER_SOURCE:-nextcloud}
       - ADAPTER_API_URL=${ADAPTER_API_URL}
@@ -217,4 +241,4 @@ services:
     profiles:
       - business-os
     depends_on:
-      - memory-service
+      - auth-proxy

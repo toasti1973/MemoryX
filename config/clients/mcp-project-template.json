@@ -1,13 +1,11 @@
 {
   "mcpServers": {
-    "memory-project": {
-      "url": "https://memory.local/mcp",
-      "apiKey": "HIER_PROJEKT_API_KEY",
-      "namespace": "project:PROJEKTNAME",
-      "sharedNamespaces": ["global"],
-      "autoRecall": true,
-      "autoStore": true,
-      "timeout": 45000
+    "memory": {
+      "type": "sse",
+      "url": "https://memory.local/mcp/",
+      "headers": {
+        "X-API-Key": "HIER_PROJEKT_API_KEY"
+      }
     }
   }
 }

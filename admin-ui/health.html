@@ -79,11 +79,11 @@
       <div class="service-card" style="padding:24px 28px;flex-direction:column;align-items:flex-start;gap:16px">
         <div style="display:flex;align-items:center;gap:12px;width:100%">
           <span class="dot dot-warn" id="dot-memory" style="width:12px;height:12px;flex-shrink:0"></span>
-          <div class="service-name" style="font-size:15px">memory-service</div>
+          <div class="service-name" style="font-size:15px">memcp</div>
           <span class="badge badge-yellow" id="badge-memory" style="margin-left:auto">Prüfe...</span>
         </div>
         <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-          Episoden-Store · Embedding · Recall
+          MCP-Server · MAGMA-Graph · Recall
         </div>
         <div style="font-size:12px;color:var(--text-dim)" id="detail-memory">—</div>
       </div>
@@ -150,7 +150,7 @@ async function load() {
 
     // Services
     const svcs = health.services || {};
-    setCard('memory', svcs['memory-service'] || (allOk ? 'ok' : 'error'), 'Port 3457');
+    setCard('memory', svcs['memcp'] || (allOk ? 'ok' : 'error'), 'Port 3457');
     setCard('ollama',  allOk ? 'ok' : 'error', 'Port 11434');
     setCard('admin',   'ok', 'Port 3459');
 

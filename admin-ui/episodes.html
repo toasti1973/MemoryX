@@ -63,14 +63,7 @@
     <div class="toolbar">
       <input id="search-input" type="text" placeholder="Suchen..." style="max-width:280px"
              onkeydown="if(event.key==='Enter')search()">
-      <select id="ns-filter" style="max-width:180px;width:auto">
-        <option value="">Alle Namespaces</option>
-        <option value="global">global</option>
-        <option value="project">project</option>
-        <option value="desktop">desktop</option>
-        <option value="cli">cli</option>
-        <option value="business">business</option>
-      </select>
+      <input id="project-filter" type="text" placeholder="Projekt..." style="max-width:160px">
       <button class="btn btn-primary" onclick="search()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Suchen
@@ -87,11 +80,10 @@
         <thead>
           <tr>
             <th style="padding-left:24px">Kategorie</th>
-            <th>Outcome</th>
-            <th>Kontext</th>
-            <th>Agent</th>
-            <th>Namespace</th>
-            <th>Qualität</th>
+            <th>Zusammenfassung</th>
+            <th>Projekt</th>
+            <th>Tags</th>
+            <th>Importance</th>
             <th>Erstellt</th>
             <th style="padding-right:24px">Aktionen</th>
           </tr>
@@ -108,46 +100,45 @@
 <script>
 async function search() {
   const q  = document.getElementById('search-input').value.trim();
-  const ns = document.getElementById('ns-filter').value;
+  const proj = document.getElementById('project-filter').value.trim();
   const tbody = document.getElementById('episodes-table');
-  tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>Lade...</p></div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>Lade...</p></div></td></tr>';
 
   try {
     const params = { limit: 50 };
     if (q) params.q = q;
-    if (ns) params.namespace = ns;
+    if (proj) params.project = proj;
 
     const episodes = await api.episodes.list(params);
 
     if (!episodes || episodes.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-        <p>Keine Episoden gefunden</p>
+        <p>Keine Insights gefunden</p>
       </div></td></tr>`;
       return;
     }
 
     tbody.innerHTML = episodes.map(ep => `
       <tr>
-        <td style="padding-left:24px"><strong>${escHtml(ep.task_category)}</strong></td>
-        <td><span class="badge ${outcomeClass(ep.outcome)}">${escHtml(ep.outcome)}</span></td>
-        <td style="max-width:260px">
+        <td style="padding-left:24px"><strong>${escHtml(ep.category)}</strong></td>
+        <td style="max-width:300px">
           <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-muted)"
-                title="${escHtml(ep.context_summary)}">${escHtml(ep.context_summary)}</span>
+                title="${escHtml(ep.content)}">${escHtml(ep.summary || ep.content)}</span>
         </td>
-        <td style="color:var(--text-muted)">${escHtml(ep.agent_id) || '—'}</td>
-        <td><code>${escHtml(ep.namespace)}</code></td>
-        <td>${scoreBar(ep.quality_score)}</td>
+        <td><code>${escHtml(ep.project) || '—'}</code></td>
+        <td style="color:var(--text-muted);font-size:12px">${escHtml(ep.tags) || '—'}</td>
+        <td>${scoreBar(ep.importance)}</td>
         <td style="color:var(--text-muted);white-space:nowrap">${formatDate(ep.created_at)}</td>
         <td style="padding-right:24px">
-          <button class="btn btn-danger btn-icon btn-sm" title="Löschen" onclick="deleteEpisode('${ep.id}')">
+          <button class="btn btn-danger btn-icon btn-sm" title="Loeschen" onclick="deleteEpisode('${ep.id}')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </td>
       </tr>
     `).join('');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><p style="color:var(--error)">Fehler: ${escHtml(err.message)}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p style="color:var(--error)">Fehler: ${escHtml(err.message)}</p></div></td></tr>`;
     showToast('Fehler: ' + err.message, 'error');
   }
 }

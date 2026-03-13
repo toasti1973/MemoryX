@@ -17,10 +17,11 @@ echo ""
 CHANGED=$(git diff HEAD@{1} HEAD --name-only 2>/dev/null || echo "")
 
 REBUILD=""
-echo "$CHANGED" | grep -q "^memory-service/"  && REBUILD="$REBUILD memory-service"
+echo "$CHANGED" | grep -q "^memcp-engine/"     && REBUILD="$REBUILD memcp"
+echo "$CHANGED" | grep -q "^auth-proxy/"       && REBUILD="$REBUILD auth-proxy"
 echo "$CHANGED" | grep -q "^admin-api/"        && REBUILD="$REBUILD admin-api"
 echo "$CHANGED" | grep -q "^scheduler/"        && REBUILD="$REBUILD scheduler"
-echo "$CHANGED" | grep -q "^memory-adapter/"   && REBUILD="$REBUILD memory-service"
+echo "$CHANGED" | grep -q "^memory-adapter/"   && REBUILD="$REBUILD memory-adapter"
 
 # Admin-UI braucht keinen Build (Volume-Mount), nur Restart von admin-ui+caddy
 RESTART_UI=false

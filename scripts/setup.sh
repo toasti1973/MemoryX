@@ -68,11 +68,11 @@ OLLAMA_MODEL="${OLLAMA_MODEL:-nomic-embed-text}"
 echo "[setup] Lade Embedding-Modell: $OLLAMA_MODEL"
 docker exec memory-ollama ollama pull "$OLLAMA_MODEL" || echo "[setup] Modell-Pull fehlgeschlagen (retry via scheduler)"
 
-# ── Warte auf memory-service ──────────────────────────────────────────────────
-echo "[setup] Warte auf memory-service (max. 30s)..."
+# ── Warte auf memcp ──────────────────────────────────────────────────────────
+echo "[setup] Warte auf memcp (max. 30s)..."
 for i in $(seq 1 6); do
-  if docker exec memory-service wget -qO- http://localhost:3457/health &>/dev/null; then
-    echo "[setup] memory-service ist bereit"
+  if docker exec memory-memcp python -c "import urllib.request; urllib.request.urlopen('http://localhost:3457/mcp/')" &>/dev/null; then
+    echo "[setup] memcp ist bereit"
     break
   fi
   sleep 5

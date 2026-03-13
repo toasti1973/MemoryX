@@ -67,7 +67,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
         </div>
         <div class="kpi-value" id="kpi-episodes">—</div>
-        <div class="kpi-label">Episoden</div>
+        <div class="kpi-label">Insights</div>
       </div>
       <div class="kpi">
         <div class="kpi-icon kpi-icon-blue">
@@ -81,7 +81,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
         <div class="kpi-value" id="kpi-hitrate">—</div>
-        <div class="kpi-label">Hit-Rate</div>
+        <div class="kpi-label">Graph-Edges</div>
       </div>
       <div class="kpi">
         <div class="kpi-icon kpi-icon-orange">
@@ -95,7 +95,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </div>
         <div class="kpi-value" id="kpi-avgscore">—</div>
-        <div class="kpi-label">Ø Qualität</div>
+        <div class="kpi-label">Ø Importance</div>
       </div>
     </div>
 
@@ -111,7 +111,7 @@
         <div class="service-card">
           <span class="dot dot-warn" id="dot-memory"></span>
           <div>
-            <div class="service-name">memory-service</div>
+            <div class="service-name">memcp</div>
             <div class="service-status" id="status-memory">Prüfe...</div>
           </div>
         </div>
@@ -169,14 +169,14 @@ async function load() {
       api.logs({ lines: 10 })
     ]);
 
-    document.getElementById('kpi-episodes').textContent = stats.episodeCount ?? '—';
+    document.getElementById('kpi-episodes').textContent = stats.insightCount ?? '—';
     document.getElementById('kpi-rules').textContent    = stats.ruleCount ?? '—';
-    document.getElementById('kpi-hitrate').textContent  = stats.hitRate != null ? (stats.hitRate * 100).toFixed(0) + '%' : '—';
+    document.getElementById('kpi-hitrate').textContent  = stats.edgeCount != null ? stats.edgeCount + ' Edges' : '—';
     document.getElementById('kpi-dbsize').textContent   = stats.dbSizeMB != null ? stats.dbSizeMB + ' MB' : '—';
-    document.getElementById('kpi-avgscore').textContent = stats.avgScore ?? '—';
+    document.getElementById('kpi-avgscore').textContent = stats.avgImportance ?? '—';
 
     const svcs = health.services || {};
-    setStatus('memory',    svcs['memory-service'] || (health.status === 'ok' ? 'ok' : 'error'));
+    setStatus('memory',    svcs['memcp'] || (health.status === 'ok' ? 'ok' : 'error'));
     setStatus('ollama',    health.status === 'ok' ? 'ok' : 'error');
     setStatus('admin-api', 'ok');
 

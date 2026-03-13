@@ -118,7 +118,7 @@
         <div class="service-card">
           <span class="dot dot-warn" id="svc-dot-memory"></span>
           <div>
-            <div class="service-name">memory-service</div>
+            <div class="service-name">memcp</div>
             <div class="service-status" id="svc-status-memory">Prüfe...</div>
           </div>
         </div>
@@ -157,11 +157,11 @@ async function loadStats() {
     const stats = await api.stats();
     const container = document.getElementById('stats-container');
     container.innerHTML = `
-      <div class="stats-row"><span>Episoden</span><strong>${stats.episodeCount ?? '—'}</strong></div>
-      <div class="stats-row"><span>Regeln (bestätigt)</span><strong>${stats.ruleCount ?? '—'}</strong></div>
-      <div class="stats-row"><span>Hit-Rate</span><strong>${stats.hitRate != null ? (stats.hitRate * 100).toFixed(1) + '%' : '—'}</strong></div>
-      <div class="stats-row"><span>Durchschn. Qualität</span><strong>${stats.avgScore ?? '—'}</strong></div>
-      <div class="stats-row"><span>DB-Größe</span><strong>${stats.dbSizeMB != null ? stats.dbSizeMB + ' MB' : '—'}</strong></div>
+      <div class="stats-row"><span>Insights</span><strong>${stats.insightCount ?? '—'}</strong></div>
+      <div class="stats-row"><span>Edges</span><strong>${stats.edgeCount ?? '—'}</strong></div>
+      <div class="stats-row"><span>Regeln</span><strong>${stats.ruleCount ?? '—'}</strong></div>
+      <div class="stats-row"><span>Durchschn. Importance</span><strong>${stats.avgImportance ?? '—'}</strong></div>
+      <div class="stats-row"><span>DB-Groesse</span><strong>${stats.dbSizeMB != null ? stats.dbSizeMB + ' MB' : '—'}</strong></div>
     `;
   } catch (err) {
     document.getElementById('stats-container').innerHTML = '<div class="stats-row"><span style="color:var(--error)">Fehler beim Laden</span></div>';
@@ -172,7 +172,7 @@ async function checkHealth() {
   try {
     const health = await api.health();
     const svcs = health.services || {};
-    setSvcStatus('memory',    svcs['memory-service'] || (health.status === 'ok' ? 'ok' : 'error'));
+    setSvcStatus('memory',    svcs['memcp'] || (health.status === 'ok' ? 'ok' : 'error'));
     setSvcStatus('ollama',    health.status === 'ok' ? 'ok' : 'error');
     setSvcStatus('admin-api', 'ok');
 

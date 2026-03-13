@@ -26,7 +26,8 @@ check_container() {
 
 echo "Docker-Container:"
 check_container "memory-caddy"
-check_container "memory-service"
+check_container "memory-memcp"
+check_container "memory-auth-proxy"
 check_container "memory-ollama"
 check_container "memory-admin-api"
 check_container "memory-admin-ui"
