@@ -47,14 +47,20 @@ function adminAuth(req, res, next) {
 }
 
 // ─── Datenbank-Helfer ───────────────────────────────────────────────────
-function getMemcpDb(readonly = true) {
+function getMemcpDb() {
   if (!fs.existsSync(MEMCP_DB_PATH)) return null;
-  return new Database(MEMCP_DB_PATH, { readonly });
+  // WAL-Modus erfordert read-write Zugriff (Shared Memory)
+  const db = new Database(MEMCP_DB_PATH);
+  db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000');
+  return db;
 }
 
 function getAuthLogDb() {
   if (!fs.existsSync(AUTH_LOG_DB_PATH)) return null;
-  return new Database(AUTH_LOG_DB_PATH, { readonly: true });
+  const db = new Database(AUTH_LOG_DB_PATH);
+  db.pragma('busy_timeout = 5000');
+  return db;
 }
 
 function getAdminDb() {
