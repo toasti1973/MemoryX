@@ -596,7 +596,9 @@ def main() -> None:
     host = os.environ.get("MEMCP_HOST", "127.0.0.1")
     port = int(os.environ.get("MEMCP_PORT", "3457"))
 
-    if transport in ("http", "sse"):
-        mcp.run(transport=transport, host=host, port=port)
+    if transport in ("http", "streamable-http"):
+        mcp.run(transport="streamable-http", host=host, port=port)
+    elif transport == "sse":
+        mcp.run(transport="sse", host=host, port=port)
     else:
         mcp.run()
