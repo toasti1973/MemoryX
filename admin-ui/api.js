@@ -46,9 +46,12 @@ const api = {
   gc:       ()          => apiFetch('/gc',     { method: 'POST' }),
 };
 
-function formatDate(unixTs) {
-  if (!unixTs) return '—';
-  return new Date(unixTs * 1000).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+function formatDate(val) {
+  if (!val) return '—';
+  // Support both ISO strings (memcp) and unix timestamps (legacy)
+  const d = typeof val === 'string' ? new Date(val) : new Date(val * 1000);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
 }
 
 function formatBytes(bytes) {

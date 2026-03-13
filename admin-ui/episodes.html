@@ -163,7 +163,7 @@ function outcomeClass(o) {
 function scoreBar(effectiveScore, textLabel) {
   const IMPORTANCE_MAP = { low: 0.25, medium: 0.5, high: 0.75, critical: 1.0 };
   const score = typeof effectiveScore === 'number' ? effectiveScore : (IMPORTANCE_MAP[textLabel] || 0.5);
-  const pct   = Math.round(score * 100);
+  const pct   = Math.min(100, Math.round(score * 100));
   const color = pct > 70 ? 'var(--success)' : pct > 40 ? 'var(--warning)' : 'var(--error)';
   const label = textLabel ? `${textLabel} (${pct}%)` : `${pct}%`;
   return `<div class="score-bar">
