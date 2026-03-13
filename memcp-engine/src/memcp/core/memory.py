@@ -34,9 +34,18 @@ IMPORTANCE_WEIGHTS = {"low": 0.25, "medium": 0.5, "high": 0.75, "critical": 1.0}
 def _use_graph() -> bool:
     """Check whether to use the graph backend.
 
-    Returns True if graph.db exists (meaning Phase 3 is active).
-    On first write, the graph is created and JSON data auto-migrated.
+    Returns True if:
+    - MEMCP_BACKEND=graph (forced, e.g. in Docker deployment), or
+    - graph.db already exists (meaning Phase 3 was previously activated).
+
+    When forced via env var and graph.db doesn't exist yet, the first
+    GraphMemory access will create it and auto-migrate JSON data.
     """
+    import os
+
+    backend = os.getenv("MEMCP_BACKEND", "auto").lower()
+    if backend == "graph":
+        return True
     config = get_config()
     return config.graph_db_path.exists()
 
@@ -259,7 +268,7 @@ def _try_semantic_dedup(content: str, graph: GraphMemory) -> dict[str, Any] | No
 
 def _remember_graph(insight: dict[str, Any], content: str) -> dict[str, Any]:
     """Save insight via GraphMemory."""
-    graph = _get_graph()
+    graph = _ensure_graph_migrated()
     try:
         # Check for duplicate content (exact hash match)
         existing_hash = content_hash(content)
@@ -400,7 +409,7 @@ def _recall_graph(
     scope: str = "project",
 ) -> list[dict[str, Any]]:
     """Recall via GraphMemory with intent-aware traversal."""
-    graph = _get_graph()
+    graph = _ensure_graph_migrated()
     try:
         results = graph.query(
             query=query,

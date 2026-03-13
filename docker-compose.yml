@@ -80,6 +80,7 @@ services:
       - MEMCP_HOST=0.0.0.0
       - MEMCP_PORT=3457
       - MEMCP_DATA_DIR=/data
+      - MEMCP_BACKEND=graph
       - MEMCP_EMBEDDING_PROVIDER=${MEMCP_EMBEDDING_PROVIDER:-ollama}
       - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-nomic-embed-text}
