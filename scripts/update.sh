@@ -47,7 +47,7 @@ if [ -n "$REBUILD" ]; then
     docker compose build --no-cache $REBUILD
     echo ""
     echo "      Starte neu:$REBUILD"
-    docker compose up -d $REBUILD
+    docker compose up -d --remove-orphans $REBUILD
 else
     echo "[3/4] Kein Rebuild nötig."
 fi
@@ -56,7 +56,7 @@ echo ""
 # docker-compose.yml geändert → force-recreate
 if [ "$RECREATE" = true ]; then
     echo "[4/4] docker-compose.yml geändert — recreate alle Container..."
-    docker compose up -d --force-recreate
+    docker compose up -d --force-recreate --remove-orphans
 # Admin-UI / Caddy neu starten wenn nötig
 elif [ "$RESTART_UI" = true ]; then
     echo "[4/4] Starte admin-ui und caddy neu..."
