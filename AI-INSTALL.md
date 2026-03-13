@@ -9,7 +9,7 @@
 
 ## Was du tun wirst
 
-Du integrierst das **MemoryX v2**-System (basierend auf **memcp**) in ein bestehendes Projekt. Das bedeutet:
+Du integrierst das **MemoryX v2.2**-System (basierend auf **memcp**) in ein bestehendes Projekt. Das bedeutet:
 
 1. Du erzeugst eine `.mcp.json` im Projektordner → verbindet Claude Code mit dem MCP-Memory-Server
 2. Du erzeugst oder erweiterst eine `CLAUDE.md` → gibt dir (Claude) Anweisungen für jede Sitzung
@@ -23,16 +23,21 @@ Du veränderst **keinen** bestehenden Code. Du fügst nur Konfigurationsdateien 
 ## Architektur-Überblick
 
 ```text
+Option A (HTTPS via Caddy):
 Claude Code ──HTTPS──▶ Caddy ──▶ auth-proxy (API-Key) ──▶ memcp (FastMCP)
                          │                                       │
                          ▼                                       ▼
                     Admin-UI/API                          graph.db + Ollama
+
+Option B (Direkt HTTP — empfohlen bei lokalen CAs):
+Claude Code ──HTTP──▶ memcp:3457 (FastMCP, mit API-Key-Header)
 ```
 
-- **memcp**: Python MCP-Server (FastMCP), 24 Tools, MAGMA-Graph, 5-Tier-Suche
+- **memcp**: Python MCP-Server (FastMCP), 24 Tools, MAGMA-Graph, 5-Tier-Suche, HNSW-Index
 - **auth-proxy**: API-Key-Validierung, Rate-Limiting, Access-Logging
 - **Caddy**: TLS-Terminierung, Reverse-Proxy, Basic-Auth für Admin
 - **Ollama**: Lokales Embedding (nomic-embed-text)
+- **scheduler**: Cron-Jobs für Backup, Destillierung (gewichtetes Scoring), Key-Cleanup
 
 ---
 
@@ -70,7 +75,7 @@ Erstelle `.mcp.json` im Projektroot:
   "mcpServers": {
     "memory": {
       "type": "http",
-      "url": "<URL_VOM_NUTZER>/mcp/",
+      "url": "<URL_VOM_NUTZER>/mcp",
       "headers": {
         "X-API-Key": "<API_KEY_VOM_NUTZER>"
       }
@@ -79,7 +84,10 @@ Erstelle `.mcp.json` im Projektroot:
 }
 ```
 
-> **Wichtig:** Die URL muss mit `/mcp/` (Trailing-Slash) enden.
+> **Wichtig:**
+> - Die URL muss mit `/mcp` enden (**ohne** Trailing-Slash — `/mcp/` verursacht 307-Redirect).
+> - `type` muss `"http"` sein (nicht `"streamable-http"` — Claude Code verwendet intern Streamable HTTP).
+> - Bei lokalen CAs (Caddy) kann es zu SSL-Problemen kommen. Alternative: Direkt-URL `http://<SERVER_IP>:3457/mcp`.
 
 **Fall B — Datei existiert bereits:**
 
@@ -215,9 +223,9 @@ Erstellte Dateien:
 - CLAUDE.md        → Anweisungen für jede Sitzung
 
 Konfiguration:
-- Transport:       MCP über Streamable HTTP
+- Transport:       MCP über HTTP (Streamable HTTP)
 - Auth:            API-Key via X-API-Key Header
-- Memory-Engine:   memcp (MAGMA-Graph, 24 Tools)
+- Memory-Engine:   memcp (MAGMA-Graph, HNSW-Index, 24 Tools)
 
 Nächste Schritte:
 1. VS Code neu laden (Ctrl+Shift+P → "Reload Window")
@@ -259,8 +267,8 @@ db.close();
 
 ### MCP-Tools erscheinen nicht in VS Code
 
-1. Prüfe `.mcp.json` — URL muss mit `/mcp/` (Trailing-Slash) enden
-2. Prüfe ob `type: "http"` gesetzt ist
+1. Prüfe `.mcp.json` — URL muss mit `/mcp` enden (**ohne** Trailing-Slash)
+2. Prüfe ob `type: "http"` gesetzt ist (nicht `"streamable-http"`)
 3. VS Code komplett neu laden (nicht nur Fenster)
 4. Health-Check erneut prüfen: `curl -sk https://memory.local/health`
 
@@ -284,7 +292,7 @@ Zeige folgende Konfiguration:
   "mcpServers": {
     "memory": {
       "type": "http",
-      "url": "https://memory.local/mcp/",
+      "url": "https://memory.local/mcp",
       "headers": {
         "X-API-Key": "<DESKTOP_API_KEY>"
       }
@@ -310,10 +318,10 @@ Das Dashboard ist erreichbar unter `https://memory.local/admin/` (mit Trailing-S
 
 | Seite | URL | Inhalt |
 | ----- | --- | ------ |
-| Übersicht | `/admin/` | Statistiken, Systemstatus, Quick-Actions |
+| Übersicht | `/admin/` | KPIs (Insights, Regeln, Hit-Rate, Graph-Edges, DB-Größe, Ø Importance), Service-Status, Letzte Aktivität |
 | API-Keys | `/admin/keys.html` | Keys erstellen, anzeigen, löschen |
 | Episoden | `/admin/episodes.html` | Memory-Einträge durchsuchen und löschen |
-| Regeln | `/admin/rules.html` | Destillierte Regeln verwalten |
+| Regeln | `/admin/rules.html` | Destillierte Regeln verwalten (gewichtetes Scoring: access_count, feedback_score, importance) |
 | Health | `/admin/health.html` | Detaillierter Systemstatus aller Services |
 | System | `/admin/system.html` | Logs, Backup, GC, Destillierung |
 
@@ -418,6 +426,6 @@ sudo sed -i '/memory.local/d' /etc/hosts
 
 ---
 
-*MemoryX v2.1 · AI-Installationsanleitung · 2026-03-13*
+*MemoryX v2.2 · AI-Installationsanleitung · 2026-03-13*
 *Quelle: <https://github.com/toasti1973/MemoryX>*
-*MCP-Engine: memcp (MAGMA-Graph, FastMCP)*
+*MCP-Engine: memcp (MAGMA-Graph, HNSW-Index, FastMCP, 5-Tier-Hybrid-Search)*

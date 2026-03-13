@@ -2,7 +2,7 @@
   "claude.mcpServers": {
     "memory": {
       "type": "http",
-      "url": "https://memory.local/mcp/",
+      "url": "https://memory.local/mcp",
       "headers": {
         "X-API-Key": "HIER_DEINEN_API_KEY_EINTRAGEN"
       }
