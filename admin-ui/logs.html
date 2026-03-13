@@ -137,7 +137,7 @@ async function load() {
         <td style="color:var(--text-muted)">${escHtml(l.namespace || '—')}</td>
         <td style="color:var(--text-muted)">${l.latency_ms != null ? l.latency_ms + ' ms' : '—'}</td>
         <td style="padding-right:24px">
-          <span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}">${l.status}</span>
+          <span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}" title="${l.status}">${statusText(l.status)}</span>
         </td>
       </tr>`;
     }).join('');
@@ -153,6 +153,12 @@ function toggleAutoRefresh() {
     clearInterval(refreshInterval);
     refreshInterval = null;
   }
+}
+
+function statusText(code) {
+  if (!code) return '—';
+  const map = {200:'OK',201:'Erstellt',204:'Kein Inhalt',301:'Redirect',400:'Ungültig',401:'Nicht autorisiert',403:'Verboten',404:'Nicht gefunden',429:'Zu viele Anfragen',500:'Server-Fehler',502:'Gateway-Fehler',503:'Nicht verfügbar'};
+  return map[code] || (code < 400 ? 'Erfolg' : code < 500 ? 'Client-Fehler' : 'Server-Fehler');
 }
 
 function escHtml(str) {
