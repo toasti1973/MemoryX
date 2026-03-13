@@ -213,7 +213,7 @@ function listInsights(req, res) {
   try {
     const { q, project, namespace, limit = 50 } = req.query;
     const parsedLimit = Math.max(1, Math.min(1000, parseInt(limit) || 50));
-    let sql = 'SELECT id, category, summary, content, importance, project, session, tags, access_count, feedback_score, created_at FROM nodes';
+    let sql = 'SELECT id, category, summary, content, importance, effective_importance, project, session, tags, access_count, feedback_score, created_at FROM nodes';
     const params = [];
     const where = [];
     if (q) {

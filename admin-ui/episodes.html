@@ -128,7 +128,7 @@ async function search() {
         </td>
         <td><code>${escHtml(ep.project) || '—'}</code></td>
         <td style="color:var(--text-muted);font-size:12px">${escHtml(ep.tags) || '—'}</td>
-        <td>${scoreBar(ep.importance)}</td>
+        <td>${scoreBar(ep.effective_importance, ep.importance)}</td>
         <td style="color:var(--text-muted);white-space:nowrap">${formatDate(ep.created_at)}</td>
         <td style="padding-right:24px">
           <button class="btn btn-danger btn-icon btn-sm" title="Loeschen" onclick="deleteEpisode('${ep.id}')">
@@ -160,12 +160,15 @@ function outcomeClass(o) {
   return 'badge-yellow';
 }
 
-function scoreBar(score) {
-  const pct   = Math.round((score || 0) * 100);
+function scoreBar(effectiveScore, textLabel) {
+  const IMPORTANCE_MAP = { low: 0.25, medium: 0.5, high: 0.75, critical: 1.0 };
+  const score = typeof effectiveScore === 'number' ? effectiveScore : (IMPORTANCE_MAP[textLabel] || 0.5);
+  const pct   = Math.round(score * 100);
   const color = pct > 70 ? 'var(--success)' : pct > 40 ? 'var(--warning)' : 'var(--error)';
+  const label = textLabel ? `${textLabel} (${pct}%)` : `${pct}%`;
   return `<div class="score-bar">
     <div class="score-track"><div class="score-fill" style="width:${pct}%;background:${color}"></div></div>
-    <span class="score-label">${pct}%</span>
+    <span class="score-label">${label}</span>
   </div>`;
 }
 
