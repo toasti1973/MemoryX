@@ -130,7 +130,7 @@ services:
       - "3459"
     volumes:
       - admin-data:/data
-      - memcp-data:/memcp:ro
+      - memcp-data:/memcp
       - memory-data:/memory:ro
       - backup-data:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro

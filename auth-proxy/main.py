@@ -8,6 +8,7 @@ Leichtgewichtiger Reverse-Proxy:
 5. Loggt Zugriffe fuer Admin-UI
 """
 
+import json
 import os
 import re
 import sqlite3
@@ -181,6 +182,21 @@ async def proxy_mcp(request: Request, path: str = ""):
     # Anfrage an memcp weiterleiten
     target_path = f"/mcp{path}" if path else "/mcp/"
     body = await request.body()
+
+    # MCP-Methode aus JSON-RPC Body extrahieren (fuer lesbare Logs)
+    mcp_method = ""
+    if body and request.method == "POST":
+        try:
+            rpc = json.loads(body)
+            mcp_method = rpc.get("method", "")
+            # Bei tools/call auch den Tool-Namen extrahieren
+            if mcp_method == "tools/call":
+                tool_name = rpc.get("params", {}).get("name", "")
+                if tool_name:
+                    mcp_method = f"tools/call:{tool_name}"
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    log_path = f"/mcp {mcp_method}".strip() if mcp_method else target_path
     headers = {
         k: v for k, v in request.headers.items()
         if k.lower() not in ("host", "x-api-key", "content-length")
@@ -199,7 +215,7 @@ async def proxy_mcp(request: Request, path: str = ""):
                 target_path, headers=headers, timeout=300.0
             )
             latency = int((time.time() - t0) * 1000)
-            _log_access(record["id"], record["name"], "GET", target_path, memcp_resp.status_code, latency)
+            _log_access(record["id"], record["name"], "GET", log_path, memcp_resp.status_code, latency)
 
             response = Response(
                 content=memcp_resp.content,
@@ -219,7 +235,7 @@ async def proxy_mcp(request: Request, path: str = ""):
                 timeout=60.0,
             )
             latency = int((time.time() - t0) * 1000)
-            _log_access(record["id"], record["name"], request.method, target_path, memcp_resp.status_code, latency)
+            _log_access(record["id"], record["name"], request.method, log_path, memcp_resp.status_code, latency)
 
             response = Response(
                 content=memcp_resp.content,
@@ -233,9 +249,9 @@ async def proxy_mcp(request: Request, path: str = ""):
 
     except httpx.TimeoutException:
         latency = int((time.time() - t0) * 1000)
-        _log_access(record["id"], record["name"], request.method, target_path, 504, latency)
+        _log_access(record["id"], record["name"], request.method, log_path, 504, latency)
         return JSONResponse(status_code=504, content={"error": "memcp timeout"})
     except Exception as e:
         latency = int((time.time() - t0) * 1000)
-        _log_access(record["id"], record["name"], request.method, target_path, 502, latency)
+        _log_access(record["id"], record["name"], request.method, log_path, 502, latency)
         return JSONResponse(status_code=502, content={"error": f"memcp unreachable: {e}"})
