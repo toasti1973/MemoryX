@@ -192,9 +192,9 @@ async function load() {
     tbody.innerHTML = logs.map(l => `
       <tr>
         <td style="white-space:nowrap;color:var(--text-muted)">${formatDate(l.created_at)}</td>
-        <td><code>${l.endpoint || '—'}</code></td>
-        <td>${l.key_name || l.key_id || '—'}</td>
-        <td>${l.namespace || '—'}</td>
+        <td><code>${escHtml(l.endpoint) || '—'}</code></td>
+        <td>${escHtml(l.key_name || l.key_id) || '—'}</td>
+        <td>${escHtml(l.namespace) || '—'}</td>
         <td style="color:var(--text-muted)">${l.latency_ms != null ? l.latency_ms + ' ms' : '—'}</td>
         <td><span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}">${l.status}</span></td>
       </tr>
@@ -205,6 +205,11 @@ async function load() {
     document.getElementById('nav-pulse').style.background = 'var(--error)';
     document.getElementById('nav-status').textContent = 'Fehler';
   }
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function setStatus(name, status) {

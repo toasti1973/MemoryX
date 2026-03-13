@@ -69,7 +69,7 @@ Erstelle `.mcp.json` im Projektroot:
 {
   "mcpServers": {
     "memory": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "<URL_VOM_NUTZER>/mcp/",
       "headers": {
         "X-API-Key": "<API_KEY_VOM_NUTZER>"
@@ -260,7 +260,7 @@ db.close();
 ### MCP-Tools erscheinen nicht in VS Code
 
 1. Prüfe `.mcp.json` — URL muss mit `/mcp/` (Trailing-Slash) enden
-2. Prüfe ob `type: "streamable-http"` gesetzt ist
+2. Prüfe ob `type: "http"` gesetzt ist
 3. VS Code komplett neu laden (nicht nur Fenster)
 4. Health-Check erneut prüfen: `curl -sk https://memory.local/health`
 
@@ -283,7 +283,7 @@ Zeige folgende Konfiguration:
 {
   "mcpServers": {
     "memory": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "<DESKTOP_API_KEY>"

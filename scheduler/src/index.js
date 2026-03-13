@@ -19,8 +19,15 @@ function log(job, msg) {
 }
 
 function getDb() {
-  if (!fs.existsSync(DB_PATH)) { log('db', 'graph.db nicht gefunden, warte...'); return null; }
-  return new Database(DB_PATH);
+  try {
+    const db = new Database(DB_PATH, { fileMustExist: true });
+    db.pragma('journal_mode = WAL');
+    db.pragma('busy_timeout = 5000');
+    return db;
+  } catch {
+    log('db', 'graph.db nicht gefunden, warte...');
+    return null;
+  }
 }
 
 // ─── Garbage Collection ───────────────────────────────────────────────────
@@ -43,7 +50,7 @@ function runGC() {
         'DELETE FROM entity_index WHERE node_id NOT IN (SELECT id FROM nodes)'
       ).run();
       if (orphanEntities.changes > 0) log('gc', `Verwaiste Entity-Eintraege geloescht: ${orphanEntities.changes}`);
-    } catch {}
+    } catch (e) { log('gc', `entity_index Cleanup uebersprungen: ${e.message}`); }
 
     const dbSize = fs.statSync(DB_PATH).size / 1024 / 1024;
     if (dbSize > MAX_DB_SIZE_MB) {

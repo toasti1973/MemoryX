@@ -196,7 +196,7 @@ Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui under `/admin/`, an
 {
   "claude.mcpServers": {
     "memory": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "YOUR_API_KEY_HERE"
@@ -212,7 +212,7 @@ Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui under `/admin/`, an
 {
   "mcpServers": {
     "memory": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "YOUR_PROJECT_API_KEY"
@@ -230,7 +230,7 @@ Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui under `/admin/`, an
 {
   "mcpServers": {
     "memory": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "YOUR_DESKTOP_API_KEY"

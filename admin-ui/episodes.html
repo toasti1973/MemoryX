@@ -154,12 +154,6 @@ async function deleteEpisode(id) {
   }
 }
 
-function outcomeClass(o) {
-  if (o === 'success') return 'badge-green';
-  if (o === 'failure') return 'badge-red';
-  return 'badge-yellow';
-}
-
 function scoreBar(effectiveScore, textLabel) {
   const IMPORTANCE_MAP = { low: 0.25, medium: 0.5, high: 0.75, critical: 1.0 };
   const score = typeof effectiveScore === 'number' ? effectiveScore : (IMPORTANCE_MAP[textLabel] || 0.5);

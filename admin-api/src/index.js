@@ -35,7 +35,7 @@ app.use((req, res, next) => {
 
 // Admin-Auth Middleware (timing-safe comparison)
 function adminAuth(req, res, next) {
-  const key = req.headers['x-admin-key'] || req.query.key;
+  const key = req.headers['x-admin-key'];
   if (!key || typeof key !== 'string') return res.status(401).json({ error: 'Unauthorized' });
   if (!ADMIN_API_KEY) return res.status(401).json({ error: 'ADMIN_API_KEY not configured' });
   const keyBuf    = Buffer.from(key);
@@ -48,19 +48,24 @@ function adminAuth(req, res, next) {
 
 // ─── Datenbank-Helfer ───────────────────────────────────────────────────
 function getMemcpDb() {
-  if (!fs.existsSync(MEMCP_DB_PATH)) return null;
-  // WAL-Modus erfordert read-write Zugriff (Shared Memory)
-  const db = new Database(MEMCP_DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.pragma('busy_timeout = 5000');
-  return db;
+  try {
+    const db = new Database(MEMCP_DB_PATH, { fileMustExist: true });
+    db.pragma('journal_mode = WAL');
+    db.pragma('busy_timeout = 5000');
+    return db;
+  } catch {
+    return null;
+  }
 }
 
 function getAuthLogDb() {
-  if (!fs.existsSync(AUTH_LOG_DB_PATH)) return null;
-  const db = new Database(AUTH_LOG_DB_PATH);
-  db.pragma('busy_timeout = 5000');
-  return db;
+  try {
+    const db = new Database(AUTH_LOG_DB_PATH, { fileMustExist: true });
+    db.pragma('busy_timeout = 5000');
+    return db;
+  } catch {
+    return null;
+  }
 }
 
 function getAdminDb() {
@@ -93,7 +98,7 @@ function getAdminDb() {
       created_at     INTEGER NOT NULL DEFAULT (unixepoch())
     );
   `);
-  try { db.exec('ALTER TABLE api_keys ADD COLUMN revoked_at INTEGER'); } catch {}
+  try { db.exec('ALTER TABLE api_keys ADD COLUMN revoked_at INTEGER'); } catch { /* column exists */ }
   return db;
 }
 
@@ -217,11 +222,12 @@ function listInsights(req, res) {
     const params = [];
     const where = [];
     if (q) {
-      where.push('(content LIKE ? OR summary LIKE ? OR category LIKE ? OR tags LIKE ?)');
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+      const escaped = q.replace(/[%_]/g, '\\$&');
+      where.push('(content LIKE ? ESCAPE "\\" OR summary LIKE ? ESCAPE "\\" OR tags LIKE ? ESCAPE "\\")');
+      params.push(`%${escaped}%`, `%${escaped}%`, `%${escaped}%`);
     }
     if (project) { where.push('project = ?'); params.push(project); }
-    if (namespace && !project) { where.push('project = ?'); params.push(namespace); }
+    if (namespace && !project) { where.push('project = ?'); params.push(namespace); } // namespace is legacy alias for project
     if (where.length) sql += ' WHERE ' + where.join(' AND ');
     sql += ' ORDER BY created_at DESC LIMIT ?';
     params.push(parsedLimit);
