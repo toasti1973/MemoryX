@@ -72,6 +72,8 @@ services:
     restart: always
     expose:
       - "3457"
+    ports:
+      - "3457:3457"
     volumes:
       - memcp-data:/data
     environment:
