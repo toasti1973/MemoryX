@@ -129,7 +129,7 @@ http_client: httpx.AsyncClient | None = None
 async def lifespan(app: FastAPI):
     global http_client
     _init_log_db()
-    http_client = httpx.AsyncClient(base_url=MEMCP_URL, timeout=60.0)
+    http_client = httpx.AsyncClient(base_url=MEMCP_URL, timeout=60.0, follow_redirects=True)
     yield
     await http_client.aclose()
 
