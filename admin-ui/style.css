@@ -262,6 +262,7 @@ h2 { font-size: 14px; font-weight: 600; color: var(--text); }
 .kpi-icon-green  { background: rgba(34, 212, 126, 0.2); color: var(--success); }
 .kpi-icon-orange { background: rgba(245, 166, 35, 0.2); color: var(--warning); }
 .kpi-icon-pink   { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
+.kpi-icon-cyan   { background: rgba(34, 211, 238, 0.2); color: #22d3ee; }
 
 .kpi-value {
   font-size: 28px;

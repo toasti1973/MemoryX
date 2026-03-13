@@ -154,9 +154,24 @@ app.get('/api/stats', adminAuth, (_req, res) => {
 
   try { dbSize = fs.statSync(MEMCP_DB_PATH).size; } catch {}
 
+  // Hit-Rate: erfolgreiche MCP-Aufrufe (recall/search) vs. Gesamt
+  let hitRate = null, totalCalls = 0, successCalls = 0;
+  const logDb = getAuthLogDb();
+  if (logDb) {
+    try {
+      const total = logDb.prepare("SELECT COUNT(*) as cnt FROM auth_log WHERE path LIKE '/mcp%'").get();
+      const hits  = logDb.prepare("SELECT COUNT(*) as cnt FROM auth_log WHERE path LIKE '/mcp%' AND status >= 200 AND status < 300").get();
+      totalCalls   = total?.cnt || 0;
+      successCalls = hits?.cnt || 0;
+      hitRate = totalCalls > 0 ? parseFloat((successCalls / totalCalls * 100).toFixed(1)) : null;
+    } catch {}
+    logDb.close();
+  }
+
   res.json({
     insightCount, edgeCount, ruleCount, projectCount, avgImportance,
     dbSizeBytes: dbSize, dbSizeMB: (dbSize / 1024 / 1024).toFixed(2),
+    hitRate, totalCalls, successCalls,
   });
 });
 
