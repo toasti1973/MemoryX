@@ -23,7 +23,6 @@
     # ── MCP-Endpunkt (kein Basic Auth — nutzt eigene API-Key Auth) ───────
     handle /mcp* {
         reverse_proxy auth-proxy:4000 {
-            header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
             flush_interval -1
             transport http {
@@ -46,7 +45,7 @@
     # ── Admin-Bereich: Dashboard + API unter gemeinsamer Basic Auth ──────
     # Matcher fuer /api/* und /admin/* — gleicher Auth-Realm
     @admin path /api/* /admin/*
-    basicauth @admin {
+    basic_auth @admin {
         {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
     }
 
