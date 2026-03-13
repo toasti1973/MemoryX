@@ -4,8 +4,8 @@
 
 [![Docker](https://img.shields.io/badge/Docker-Compose-0DB7ED?logo=docker)](https://docs.docker.com/compose/)
 [![Ollama](https://img.shields.io/badge/Ollama-nomic--embed--text-006064)](https://ollama.com)
-[![MCP](https://img.shields.io/badge/MCP-Claude%20Code-1565C0)](https://modelcontextprotocol.io)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-1565C0)](https://modelcontextprotocol.io)
+[![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE)
 
 ---
 
@@ -56,58 +56,59 @@ MemoryX runs as a fully containerized Docker stack on a Proxmox server in your l
 ### Docker Stack Overview
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│  LOCAL NETWORK — VS Code · Desktop App · Browser · Business-OS  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTPS :443
-┌──────────────────────────▼──────────────────────────────────────┐
-│  CADDY  (Reverse Proxy + TLS)                                   │
-│  /mcp → auth-proxy → memcp   /admin → admin-ui   /api → admin  │
-└──────┬──────────┬──────────────┬───────────────┬───────────────┘
-       │          │              │               │
-  [auth-proxy] [memcp]    [admin-api]      [admin-ui]
-   :4000       :3457       :3459            :8080
-   API-Key     MCP Server  REST Backend     Web Dashboard
++-------------------------------------------------------------------+
+|  LOCAL NETWORK -- VS Code / Desktop App / Browser / Business-OS    |
++------------------------------+------------------------------------+
+                               | HTTPS :443
++------------------------------v------------------------------------+
+|  CADDY  (Reverse Proxy + TLS + Basic Auth)                        |
+|  /mcp -> auth-proxy -> memcp   /admin -> admin-ui  /api -> admin  |
++------+----------+---------------+----------------+----------------+
+       |          |               |                |
+  [auth-proxy] [memcp]     [admin-api]       [admin-ui]
+   :4000       :3457        :3459             :8080
+   API-Key     MCP Server   REST Backend      Web Dashboard
    Validation  MAGMA Graph
 
-  [ollama]     [scheduler]               [memory-adapter]
-  :11434       GC · Backup · Distill     Business-OS Bridge (opt.)
+  [ollama]     [scheduler]                [memory-adapter]
+  :11434       GC / Backup / Distill      Business-OS Bridge (opt.)
   Embedding
 
-┌─────────────────────────────────────────────────────────────────┐
-│  DOCKER VOLUMES (persistent)                                     │
-│  memory-data · ollama-models · caddy-certs · admin-data         │
-└─────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------+
+|  DOCKER VOLUMES (persistent)                                       |
+|  memcp-data / ollama-models / caddy-certs / admin-data / backup   |
++-------------------------------------------------------------------+
 ```
 
 ### Directory Structure
 
 ```text
 /opt/MemoryX/
-├── docker-compose.yml          # Main stack definition
-├── .env                        # Secrets & configuration (never commit!)
-├── memcp-engine/               # Python MCP server (FastMCP + MAGMA)
-├── auth-proxy/                 # FastAPI reverse proxy (API-Key auth, rate-limiting)
-├── admin-api/                  # Node.js REST backend for admin UI
-├── admin-ui/                   # Static HTML/CSS/JS dashboard
-│   ├── index.html              # Dashboard
-│   ├── keys.html               # API key management
-│   ├── episodes.html           # Insight browser
-│   ├── rules.html              # Rule management
-│   ├── logs.html               # Live log viewer
-│   ├── health.html             # Dedicated health status page
-│   └── system.html             # System actions
-├── scheduler/                  # Node.js cron jobs
-├── memory-adapter/             # Business-OS bridge (optional)
-├── config/
-│   ├── caddy/Caddyfile         # Routing + TLS
-│   └── clients/                # Config templates for all clients
-├── scripts/
-│   ├── setup.sh                # First-time setup + Ollama model pull
-│   ├── update.sh               # git pull + smart Docker rebuild
-│   ├── backup.sh               # Manual database backup
-│   └── healthcheck.sh          # Status check for all services
-└── data/                       # Mounted by Docker (graph.db, admin.db)
+|-- docker-compose.yml          # Main stack definition
+|-- .env                        # Secrets & configuration (never commit!)
+|-- memcp-engine/               # Python MCP server (FastMCP + MAGMA)
+|-- auth-proxy/                 # FastAPI reverse proxy (API-Key auth, rate-limiting)
+|-- admin-api/                  # Node.js REST backend for admin UI
+|-- admin-ui/                   # Static HTML/CSS/JS dashboard
+|   |-- index.html              # Dashboard (KPIs, status)
+|   |-- keys.html               # API key management
+|   |-- episodes.html           # Insight browser
+|   |-- rules.html              # Rule management
+|   |-- logs.html               # Live log viewer
+|   |-- health.html             # Dedicated health status page
+|   +-- system.html             # System actions (backup, GC)
+|-- scheduler/                  # Node.js cron jobs
+|-- memory-adapter/             # Business-OS bridge (optional)
+|-- config/
+|   |-- caddy/Caddyfile         # Routing + TLS + Basic Auth
+|   +-- clients/                # Config templates for all clients
+|-- scripts/
+|   |-- setup.sh                # First-time setup + Ollama model pull
+|   |-- update.sh               # git pull + smart Docker rebuild
+|   |-- backup.sh               # Manual database backup
+|   |-- healthcheck.sh          # Status check for all services
+|   +-- test-mcp.sh             # Full MCP tool test (all 24 tools)
++-- data/                       # Mounted by Docker (graph.db, admin.db)
 ```
 
 ---
@@ -126,13 +127,13 @@ The MCP server implements the full Model Context Protocol via JSON-RPC 2.0 over 
 | Graph | `memcp_graph_stats`, `memcp_projects`, `memcp_sessions` |
 | Maintenance | `memcp_retention_preview`, `memcp_retention_run`, `memcp_restore`, `memcp_reinforce`, `memcp_consolidation_preview`, `memcp_consolidate` |
 
-**Image:** Python 3.12 · **Port:** `3457` (internal) · **Restart:** `always`
+**Image:** Python 3.12 | **Port:** `3457` (internal) | **Transport:** Streamable HTTP | **Backend:** SQLite (graph.db)
 
 ### auth-proxy — API Key Validation (Python/FastAPI)
 
-Validates `X-API-Key` headers against admin.db, enforces rate limits, and logs all access to auth_log.db.
+Validates `X-API-Key` headers against admin.db, enforces per-key rate limits, extracts MCP method names for readable logs, and logs all access to auth_log.db.
 
-**Image:** Python 3.12 · **Port:** `4000` (internal) · **Restart:** `always`
+**Image:** Python 3.12 | **Port:** `4000` (internal)
 
 ### ollama — Local Embeddings
 
@@ -154,21 +155,20 @@ Volume:   ollama-models  (persisted — no re-download after restart)
 | Logs | `GET /api/logs` | Access log viewer |
 | Backup | `POST /api/backup` | Trigger a manual backup |
 | System | `POST /api/gc` `/api/distill` | Trigger GC and distillation manually |
-| memcp Bridge | `GET /api/memcp/stats` `/api/memcp/graph` | Graph analytics |
 
 ### admin-ui — Web Dashboard
 
-Static HTML/CSS/JS files — no build pipeline. Served directly by Caddy.
+Static HTML/CSS/JS files — no build pipeline. Served by Caddy under `/admin/`.
 
 | Page | URL | Content |
 | ---- | --- | ------- |
-| Dashboard | `/admin/` | KPI cards, service status lights, activity log (auto-refresh 30s) |
-| API Keys | `/admin/keys` | Create, copy, revoke keys |
-| Insights | `/admin/episodes` | Search and delete insights |
-| Rules | `/admin/rules` | Review, confirm, or discard rules |
-| Logs | `/admin/logs` | Live log viewer with error highlighting |
-| Health | `/admin/health` | Dedicated health status page |
-| System | `/admin/system` | DB size, backup, GC, restart |
+| Dashboard | `/admin/` | KPI cards, service status, activity log (auto-refresh 30s) |
+| API Keys | `/admin/keys.html` | Create, copy, revoke keys |
+| Insights | `/admin/episodes.html` | Search and delete insights |
+| Rules | `/admin/rules.html` | Review, confirm, or discard rules |
+| Logs | `/admin/logs.html` | Live log viewer with error highlighting |
+| Health | `/admin/health.html` | Dedicated health status page |
+| System | `/admin/system.html` | DB size, backup, GC, restart |
 
 ### scheduler — Background Jobs
 
@@ -180,11 +180,9 @@ Static HTML/CSS/JS files — no build pipeline. Served directly by Caddy.
 | Importance Decay | Daily 04:00 | Apply time-based importance decay to all nodes |
 | Health Report | Hourly | Write status log to stdout |
 
-All scheduler jobs are wrapped in error handlers — a failed job is logged but does not crash the service. Timezone configurable via `TZ` env var (default: `Europe/Berlin`).
+### caddy — Reverse Proxy + Auth
 
-### caddy — Reverse Proxy
-
-Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui, and proxies `/api/*` to admin-api. Automatic HTTPS with internal CA.
+Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui under `/admin/`, and proxies `/api/*` to admin-api. Unified HTTP Basic Auth for `/admin/*` and `/api/*`. Automatic HTTPS with internal CA.
 
 ---
 
@@ -198,7 +196,7 @@ Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui, and proxies `/api/
 {
   "claude.mcpServers": {
     "memory": {
-      "type": "sse",
+      "type": "streamable-http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "YOUR_API_KEY_HERE"
@@ -214,7 +212,7 @@ Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui, and proxies `/api/
 {
   "mcpServers": {
     "memory": {
-      "type": "sse",
+      "type": "streamable-http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "YOUR_PROJECT_API_KEY"
@@ -232,7 +230,7 @@ Routes `/mcp/*` through auth-proxy to memcp, serves admin-ui, and proxies `/api/
 {
   "mcpServers": {
     "memory": {
-      "type": "sse",
+      "type": "streamable-http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "YOUR_DESKTOP_API_KEY"
@@ -253,11 +251,9 @@ Config file locations:
 # Export Caddy Root CA
 docker cp memory-caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root-ca.crt
 
-# macOS
-# Double-click the .crt file → Keychain → Mark as trusted
+# macOS — Double-click the .crt file -> Keychain -> Mark as trusted
 
-# Windows
-# certmgr.msc → Trusted Root Certification Authorities → Import
+# Windows — certmgr.msc -> Trusted Root Certification Authorities -> Import
 
 # Linux
 sudo cp caddy-root-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates
@@ -268,7 +264,7 @@ sudo cp caddy-root-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-ce
 WireGuard VPN on the Proxmox host — clients use the **same configuration** as on the LAN:
 
 ```text
-Laptop (remote) → WireGuard :51820 → 192.168.1.50 → memory.local → memcp
+Laptop (remote) -> WireGuard :51820 -> 192.168.x.x -> memory.local -> memcp
 ```
 
 ---
@@ -276,43 +272,41 @@ Laptop (remote) → WireGuard :51820 → 192.168.1.50 → memory.local → memcp
 ## 5. Configuration (.env)
 
 ```env
-# ── Server ────────────────────────────────────────────────────────
+# -- Server ---------------------------------------------------------
 MEMORY_HOST=memory.local
-MEMORY_PORT=443
 
-# ── Admin UI Auth ─────────────────────────────────────────────────
+# -- Admin UI Auth --------------------------------------------------
 ADMIN_USER=admin
 ADMIN_PASSWORD_HASH=           # bcrypt hash via: caddy hash-password
 
-# ── Internal Security ─────────────────────────────────────────────
+# -- Internal Security ----------------------------------------------
 ADMIN_API_KEY=                 # generate: openssl rand -hex 32
 
-# ── Embedding ─────────────────────────────────────────────────────
+# -- memcp ----------------------------------------------------------
+MEMCP_BACKEND=graph            # always use SQLite graph backend
+MEMCP_EMBEDDING_PROVIDER=ollama
+MEMCP_SEARCH=hybrid
+MEMCP_MAX_INSIGHTS=10000
+
+# -- Embedding ------------------------------------------------------
 OLLAMA_MODEL=nomic-embed-text
 OLLAMA_URL=http://ollama:11434
 
-# ── Scheduler ─────────────────────────────────────────────────────
+# -- Scheduler ------------------------------------------------------
 GC_SCHEDULE=0 2 * * *
 DISTILL_SCHEDULE=30 2 * * *
 BACKUP_SCHEDULE=0 3 * * *
 DECAY_SCHEDULE=0 4 * * *
-RULE_MIN_NODES=3
-DECAY_FACTOR=0.002
-MAX_DB_SIZE_MB=500
-TZ=Europe/Berlin
 
-# ── Business-OS Adapter (optional) ───────────────────────────────
+# -- Business-OS Adapter (optional) ---------------------------------
+ADAPTER_MEMORY_API_KEY=        # MCP API key for adapter
 ADAPTER_SOURCE=nextcloud
 ADAPTER_API_URL=https://nextcloud.local
 ADAPTER_API_KEY=
-ADAPTER_SYNC_SCHEDULE=0 */6 * * *
-ADAPTER_NAMESPACES=business:projects,business:docs
-ADAPTER_MAX_AGE_DAYS=90
 
-# ── Resource Limits ───────────────────────────────────────────────
+# -- Resource Limits ------------------------------------------------
 MEM_LIMIT_SERVICE=512m
 MEM_LIMIT_OLLAMA=2g
-MEM_LIMIT_ADMIN=256m
 CPU_LIMIT_SERVICE=1.0
 CPU_LIMIT_OLLAMA=2.0
 ```
@@ -326,20 +320,20 @@ CPU_LIMIT_OLLAMA=2.0
 | Phase | Goal | Acceptance Criterion |
 | ----- | ---- | -------------------- |
 | Phase 0 | Proxmox LXC/VM + Docker | `docker compose version` runs |
-| Phase 1 | Core stack (memcp + Ollama + Caddy + auth-proxy) | `GET /health` → `{status: ok}` |
+| Phase 1 | Core stack (memcp + Ollama + Caddy + auth-proxy) | `GET /health` -> `{status: ok}` |
 | Phase 2 | Admin API + Web Dashboard | Dashboard shows green status lights |
 | Phase 3 | Scheduler + first backup | Backup file present in volume |
 | Phase 4 | VS Code / Claude Code | Recall returns context in a new session |
 | Phase 5 | Desktop App + CLI | All clients visible in admin logs |
 | Phase 6 | WireGuard VPN (optional) | Remote access works |
 | Phase 7 | Business-OS Adapter | Business insights visible in admin UI |
-| Phase 8 | Tuning & validation | Graph stats healthy |
+| Phase 8 | Tuning & validation | `./scripts/test-mcp.sh` — all 24 tools pass |
 
 ### Proxmox Hardware
 
 | Resource | Minimum | Recommended |
 | -------- | ------- | ----------- |
-| CPU | 4 cores | 6–8 cores |
+| CPU | 4 cores | 6-8 cores |
 | RAM | 8 GB | 16 GB |
 | Storage (SSD) | 60 GB | 120 GB |
 
@@ -349,7 +343,7 @@ CPU_LIMIT_OLLAMA=2.0
 
 | Option | Effort | Setup |
 | ------ | ------ | ----- |
-| `/etc/hosts` | Very low | Add `192.168.1.50  memory.local` on each client |
+| `/etc/hosts` | Very low | Add `192.168.x.x  memory.local` on each client |
 | Router DNS | Low | Add a local DNS entry in your router |
 | Pi-hole / Unbound | Medium | Run a dedicated DNS server as an LXC container |
 
@@ -360,6 +354,10 @@ CPU_LIMIT_OLLAMA=2.0
 ### Update Procedure
 
 Run `./scripts/update.sh` — automatically detects changed services and rebuilds only what is needed.
+
+### Testing
+
+Run `./scripts/test-mcp.sh` — tests all 24 MCP tools via Python/httpx inside the memcp container and reports pass/fail with colored output.
 
 ### Key Metrics
 
@@ -377,8 +375,8 @@ Run `./scripts/update.sh` — automatically detects changed services and rebuild
 | --------- | ----------- |
 | Name | e.g. `vscode-global`, `desktop-app`, `business-adapter` |
 | Scope | `recall-only` \| `store-only` \| `recall+store` \| `admin` |
-| Project Filter | Which projects this key may access |
-| Rate Limit | Max requests per minute |
+| Namespaces | Which projects this key may access (`*` = all) |
+| Rate Limit | Max requests per minute (default: 60) |
 | Expiry | Optional — useful for temporary agents |
 | Last Used | Timestamp — makes inactive keys visible |
 
@@ -390,12 +388,12 @@ Run `./scripts/update.sh` — automatically detects changed services and rebuild
 | ----- | --------- |
 | MCP access | API key in `X-API-Key` header, validated by auth-proxy |
 | Rate limiting | Per-key rate limits enforced by auth-proxy |
-| Admin access | HTTP Basic Auth via Caddy, bcrypt hash |
+| Admin access | HTTP Basic Auth via Caddy (unified for `/admin/*` and `/api/*`) |
 | Data in transit | TLS on all connections (Caddy internal CA) |
-| Access logging | All requests logged to auth_log.db |
+| Access logging | All requests logged to auth_log.db with MCP method names |
 | Internet exposure | No port forwarding — LAN-only by default |
-| Backup exposure | Backup volume only mountable internally |
 | Database separation | graph.db (memcp), admin.db (keys/rules), auth_log.db (logs) |
+| Health checks | TCP port checks (no HTTP session spam) |
 
 ---
 
@@ -408,7 +406,7 @@ Run `./scripts/update.sh` — automatically detects changed services and rebuild
 | Ollama + nomic-embed-text | Free |
 | Caddy | Free |
 | External embedding API | **$0** — local Ollama only |
-| Operating cost (electricity) | ~$5–15 / month |
+| Operating cost (electricity) | ~$5-15 / month |
 
 ---
 
@@ -419,7 +417,7 @@ Run `./scripts/update.sh` — automatically detects changed services and rebuild
 - [ ] Create LXC or VM (Ubuntu 22.04, 4 GB RAM, 40 GB SSD)
 - [ ] For LXC: enable `nesting=1` and `keyctl=1`
 - [ ] Install Docker + Docker Compose
-- [ ] Assign a static IP (e.g. `192.168.1.50`)
+- [ ] Assign a static IP (e.g. `192.168.x.x`)
 - [ ] Add `memory.local` to `/etc/hosts` or router DNS
 
 ### Phase 1 — Core Stack
@@ -428,7 +426,7 @@ Run `./scripts/update.sh` — automatically detects changed services and rebuild
 - [ ] Create `.env` from `.env.example` and fill in secrets
 - [ ] Run `./scripts/setup.sh`
 - [ ] Import Caddy Root CA on all clients
-- [ ] Verify `https://memory.local/health` → `{status: ok}`
+- [ ] Verify `https://memory.local/health` -> `{status: ok}`
 
 ### Phase 2 — Admin UI
 
@@ -436,7 +434,7 @@ Run `./scripts/update.sh` — automatically detects changed services and rebuild
 - [ ] Create API key `vscode-global` (scope: `recall+store`)
 - [ ] Create API key `desktop-app`
 - [ ] All service status lights green
-- [ ] Run a manual backup test
+- [ ] Run `./scripts/test-mcp.sh` — all 24 tools pass
 
 ### Phase 3 — VS Code
 
@@ -480,8 +478,8 @@ See [AI-INSTALL.md](AI-INSTALL.md) for the full step-by-step guide.
 
 ## License
 
-MIT — freely adaptable for your own infrastructure.
+GPLv3 — see [LICENSE](LICENSE) for details.
 
 ---
 
-*MemoryX · v2.0 · 2026 · <https://github.com/toasti1973/MemoryX>*
+*MemoryX v2.1 / 2026-03-13 / <https://github.com/toasti1973/MemoryX>*

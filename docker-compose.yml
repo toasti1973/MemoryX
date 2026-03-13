@@ -4,7 +4,6 @@ networks:
 
 volumes:
   memcp-data:
-  memory-data:     # Legacy — bleibt fuer Migration, danach entfernbar
   ollama-models:
   caddy-certs:
   admin-data:
@@ -132,7 +131,6 @@ services:
     volumes:
       - admin-data:/data
       - memcp-data:/memcp
-      - memory-data:/memory:ro
       - backup-data:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
@@ -183,7 +181,6 @@ services:
     restart: always
     volumes:
       - memcp-data:/data
-      - memory-data:/legacy:ro
       - admin-data:/admin
       - backup-data:/backups
       - ./config/scheduler:/app/config:ro

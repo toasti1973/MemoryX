@@ -69,7 +69,7 @@ Erstelle `.mcp.json` im Projektroot:
 {
   "mcpServers": {
     "memory": {
-      "type": "sse",
+      "type": "streamable-http",
       "url": "<URL_VOM_NUTZER>/mcp/",
       "headers": {
         "X-API-Key": "<API_KEY_VOM_NUTZER>"
@@ -215,7 +215,7 @@ Erstellte Dateien:
 - CLAUDE.md        → Anweisungen für jede Sitzung
 
 Konfiguration:
-- Transport:       MCP über Streamable HTTP (SSE)
+- Transport:       MCP über Streamable HTTP
 - Auth:            API-Key via X-API-Key Header
 - Memory-Engine:   memcp (MAGMA-Graph, 24 Tools)
 
@@ -260,7 +260,7 @@ db.close();
 ### MCP-Tools erscheinen nicht in VS Code
 
 1. Prüfe `.mcp.json` — URL muss mit `/mcp/` (Trailing-Slash) enden
-2. Prüfe ob `type: "sse"` gesetzt ist
+2. Prüfe ob `type: "streamable-http"` gesetzt ist
 3. VS Code komplett neu laden (nicht nur Fenster)
 4. Health-Check erneut prüfen: `curl -sk https://memory.local/health`
 
@@ -283,7 +283,7 @@ Zeige folgende Konfiguration:
 {
   "mcpServers": {
     "memory": {
-      "type": "sse",
+      "type": "streamable-http",
       "url": "https://memory.local/mcp/",
       "headers": {
         "X-API-Key": "<DESKTOP_API_KEY>"
@@ -418,6 +418,6 @@ sudo sed -i '/memory.local/d' /etc/hosts
 
 ---
 
-*MemoryX v2 · AI-Installationsanleitung · v2.0 · 2026-03-12*
+*MemoryX v2.1 · AI-Installationsanleitung · 2026-03-13*
 *Quelle: <https://github.com/toasti1973/MemoryX>*
 *MCP-Engine: memcp (MAGMA-Graph, FastMCP)*
