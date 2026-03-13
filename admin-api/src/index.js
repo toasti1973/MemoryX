@@ -95,10 +95,17 @@ function getAdminDb() {
 app.get('/api/health', adminAuth, async (_req, res) => {
   const services = {};
 
-  // memcp Health-Check
+  // memcp Health-Check (TCP statt HTTP — streamable-http akzeptiert kein einfaches GET)
   try {
-    const r = await fetch(`${MEMCP_URL}/mcp/`, { signal: AbortSignal.timeout(5000) });
-    services['memcp'] = r.status < 500 ? 'ok' : 'error';
+    const net = require('net');
+    await new Promise((resolve, reject) => {
+      const url = new URL(MEMCP_URL);
+      const sock = net.createConnection({ host: url.hostname, port: url.port || 3457, timeout: 5000 });
+      sock.on('connect', () => { sock.destroy(); resolve(); });
+      sock.on('timeout', () => { sock.destroy(); reject(new Error('timeout')); });
+      sock.on('error', reject);
+    });
+    services['memcp'] = 'ok';
   } catch { services['memcp'] = 'offline'; }
 
   // Ollama Health-Check

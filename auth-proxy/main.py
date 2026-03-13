@@ -143,8 +143,15 @@ app = FastAPI(title="MemoryX Auth Proxy", lifespan=lifespan)
 async def health():
     memcp_ok = False
     try:
-        r = await http_client.get("/mcp/", timeout=5.0)
-        memcp_ok = r.status_code < 500
+        # TCP-Check statt HTTP GET (streamable-http akzeptiert kein einfaches GET)
+        import asyncio
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(MEMCP_URL.split("//")[1].split(":")[0], int(MEMCP_URL.split(":")[-1])),
+            timeout=5.0,
+        )
+        writer.close()
+        await writer.wait_closed()
+        memcp_ok = True
     except Exception:
         pass
     return {

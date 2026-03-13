@@ -218,11 +218,19 @@ function runKeyCleanup() {
 
 // ─── Health-Report ───────────────────────────────────────────────────────
 async function runHealthReport() {
+  // TCP-Check statt HTTP GET (streamable-http akzeptiert kein einfaches GET)
   try {
-    const r = await fetch(`${MEMCP_URL}/mcp/`, { signal: AbortSignal.timeout(5000) });
-    log('health', `memcp: ${r.status < 500 ? 'ok' : 'error'} (HTTP ${r.status})`);
+    const net = require('net');
+    const url = new URL(MEMCP_URL);
+    await new Promise((resolve, reject) => {
+      const sock = net.createConnection({ host: url.hostname, port: url.port || 3457, timeout: 5000 });
+      sock.on('connect', () => { sock.destroy(); resolve(); });
+      sock.on('timeout', () => { sock.destroy(); reject(new Error('timeout')); });
+      sock.on('error', reject);
+    });
+    log('health', 'memcp: ok (TCP)');
   } catch (err) {
-    log('health', `Health-Check fehlgeschlagen: ${err.message}`);
+    log('health', `memcp: offline (${err.message})`);
   }
 }
 
