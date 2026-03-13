@@ -179,7 +179,7 @@ async function load() {
     document.getElementById('kpi-episodes').textContent = stats.insightCount ?? '—';
     document.getElementById('kpi-rules').textContent    = stats.ruleCount ?? '—';
     document.getElementById('kpi-hitrate').textContent  = stats.hitRate != null ? stats.hitRate + '%' : '—';
-    document.getElementById('kpi-hitrate').title        = stats.totalCalls ? `${stats.successCalls}/${stats.totalCalls} MCP-Calls erfolgreich` : '';
+    document.getElementById('kpi-hitrate').title        = stats.totalInsights ? `${stats.usedInsights}/${stats.totalInsights} Insights abgerufen` : '';
     document.getElementById('kpi-edges').textContent    = stats.edgeCount ?? '—';
     document.getElementById('kpi-dbsize').textContent   = stats.dbSizeMB != null ? stats.dbSizeMB + ' MB' : '—';
     document.getElementById('kpi-avgscore').textContent = stats.avgImportance ?? '—';

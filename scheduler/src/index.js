@@ -171,7 +171,7 @@ function runDistillation() {
           SELECT content, summary FROM nodes
           WHERE (project = ? OR (project IS NULL AND ? = ''))
             AND category = ?
-          ORDER BY importance DESC LIMIT 5
+          ORDER BY (COALESCE(access_count,0) * 0.4 + COALESCE(feedback_score,0) * 0.3 + COALESCE(importance,0.5) * 0.3) DESC LIMIT 5
         `).all(proj, proj, cat.category);
 
         const summaries = insights

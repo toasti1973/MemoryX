@@ -136,6 +136,7 @@ app.get('/api/stats', adminAuth, (_req, res) => {
   const memcpDb = getMemcpDb();
   const adminDb = getAdminDb();
   let insightCount = 0, edgeCount = 0, avgImportance = 0, projectCount = 0, ruleCount = 0;
+  let hitRate = null, totalInsights = 0, usedInsights = 0;
   let dbSize = 0;
 
   if (memcpDb) {
@@ -146,6 +147,14 @@ app.get('/api/stats', adminAuth, (_req, res) => {
       avgImportance = avg?.avg ? parseFloat(avg.avg.toFixed(3)) : 0;
     } catch {}
     try { projectCount = memcpDb.prepare('SELECT COUNT(DISTINCT project) as cnt FROM nodes WHERE project IS NOT NULL AND project != ""').get()?.cnt || 0; } catch {}
+    // Hit-Rate: Anteil genutzter Insights (access_count > 0) vs. Gesamt
+    try {
+      const total  = memcpDb.prepare('SELECT COUNT(*) as cnt FROM nodes').get()?.cnt || 0;
+      const used   = memcpDb.prepare('SELECT COUNT(*) as cnt FROM nodes WHERE access_count > 0').get()?.cnt || 0;
+      hitRate      = total > 0 ? parseFloat((used / total * 100).toFixed(1)) : null;
+      totalInsights = total;
+      usedInsights  = used;
+    } catch {}
     memcpDb.close();
   }
 
@@ -154,24 +163,10 @@ app.get('/api/stats', adminAuth, (_req, res) => {
 
   try { dbSize = fs.statSync(MEMCP_DB_PATH).size; } catch {}
 
-  // Hit-Rate: erfolgreiche MCP-Aufrufe (recall/search) vs. Gesamt
-  let hitRate = null, totalCalls = 0, successCalls = 0;
-  const logDb = getAuthLogDb();
-  if (logDb) {
-    try {
-      const total = logDb.prepare("SELECT COUNT(*) as cnt FROM auth_log WHERE path LIKE '/mcp%'").get();
-      const hits  = logDb.prepare("SELECT COUNT(*) as cnt FROM auth_log WHERE path LIKE '/mcp%' AND status >= 200 AND status < 300").get();
-      totalCalls   = total?.cnt || 0;
-      successCalls = hits?.cnt || 0;
-      hitRate = totalCalls > 0 ? parseFloat((successCalls / totalCalls * 100).toFixed(1)) : null;
-    } catch {}
-    logDb.close();
-  }
-
   res.json({
     insightCount, edgeCount, ruleCount, projectCount, avgImportance,
     dbSizeBytes: dbSize, dbSizeMB: (dbSize / 1024 / 1024).toFixed(2),
-    hitRate, totalCalls, successCalls,
+    hitRate, totalInsights, usedInsights,
   });
 });
 
