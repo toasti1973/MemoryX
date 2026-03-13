@@ -134,6 +134,72 @@ Füge eine Trennlinie (`---`) vor dem neuen Abschnitt ein.
 
 ---
 
+## Schritt 2b — Auto-Hooks installieren (empfohlen)
+
+Die Hooks automatisieren drei kritische Verhaltensweisen, die das Memory-System zum Lernen braucht:
+
+1. **Auto-Reinforce** — Nach jedem `recall` wird Claude erinnert, die Treffer zu bewerten
+2. **Session-Summary** — Nach 15+ Turns fordert ein Hook die Speicherung einer Session-Zusammenfassung
+3. **Summary-Tracker** — Erkennt, ob ein Summary gespeichert wurde, und unterdrückt weitere Reminder
+
+Kopiere die Hook-Dateien aus dem MemoryX-Repository in das Projekt:
+
+```bash
+# Zielverzeichnis erstellen
+mkdir -p .claude/hooks
+
+# Hook-Dateien aus dem MemoryX-Repository kopieren (vom Server oder Git)
+# Variante A: Aus geklontem Repo
+cp /opt/MemoryX/.claude/hooks/*.py .claude/hooks/
+
+# Variante B: Einzeln erstellen (siehe Dateien im MemoryX-Repository unter .claude/hooks/)
+```
+
+**Benötigte Dateien:**
+
+| Datei | Zweck |
+|-------|-------|
+| `pre-compact-save.py` | Erzwingt Speichern vor `/compact` |
+| `auto-save-reminder.py` | Progressive Erinnerungen bei 10/20/30+ Turns |
+| `reset-counter.py` | Setzt Turn-Counter nach Speichern zurück |
+| `post-recall-reinforce.py` | Erinnert nach `recall`: bewerte die Treffer |
+| `session-end-summary.py` | Fordert Session-Summary nach 15/25+ Turns |
+| `track-summary.py` | Erkennt gespeicherte Summaries |
+
+Dann in `.claude/settings.local.json` (im Projektroot) registrieren:
+
+```json
+{
+  "hooks": {
+    "PreCompact": [
+      {"matcher": "", "hooks": [{"type": "command", "command": "python .claude/hooks/pre-compact-save.py"}]}
+    ],
+    "Notification": [
+      {"matcher": "", "hooks": [
+        {"type": "command", "command": "python .claude/hooks/auto-save-reminder.py"},
+        {"type": "command", "command": "python .claude/hooks/session-end-summary.py"}
+      ]}
+    ],
+    "PostToolUse": [
+      {"matcher": "mcp__memory__memcp_remember", "hooks": [
+        {"type": "command", "command": "python .claude/hooks/reset-counter.py"},
+        {"type": "command", "command": "python .claude/hooks/track-summary.py"}
+      ]},
+      {"matcher": "mcp__memory__memcp_load_context", "hooks": [
+        {"type": "command", "command": "python .claude/hooks/reset-counter.py"}
+      ]},
+      {"matcher": "mcp__memory__memcp_recall", "hooks": [
+        {"type": "command", "command": "python .claude/hooks/post-recall-reinforce.py"}
+      ]}
+    ]
+  }
+}
+```
+
+> **Hinweis:** Der `matcher`-Wert muss dem MCP-Tool-Prefix entsprechen. Wenn der Server in `.mcp.json` als `"memory"` registriert ist, heißt das Tool intern `mcp__memory__memcp_recall`.
+
+---
+
 ## Schritt 3 — Health-Check
 
 Führe diesen Check aus, um zu prüfen, ob der Server erreichbar ist:
@@ -216,16 +282,19 @@ MemoryX wurde in dieses Projekt integriert. MCP-Verbindung konfiguriert am <HEUT
 Berichte dem Nutzer nach der Integration:
 
 ```text
-MemoryX v2 wurde erfolgreich in dein Projekt integriert.
+MemoryX v2.2 wurde erfolgreich in dein Projekt integriert.
 
 Erstellte Dateien:
-- .mcp.json        → MCP-Verbindung zu <URL_VOM_NUTZER>/mcp/
-- CLAUDE.md        → Anweisungen für jede Sitzung
+- .mcp.json                → MCP-Verbindung zu <URL_VOM_NUTZER>/mcp
+- CLAUDE.md                → Anweisungen für jede Sitzung
+- .claude/hooks/*.py       → Auto-Hooks (Reinforce, Session-Summary, Save-Reminder)
+- .claude/settings.local.json → Hook-Registrierung
 
 Konfiguration:
 - Transport:       MCP über HTTP (Streamable HTTP)
 - Auth:            API-Key via X-API-Key Header
 - Memory-Engine:   memcp (MAGMA-Graph, HNSW-Index, 24 Tools)
+- Auto-Hooks:      Reinforce nach Recall, Session-Summary, Progressive Save-Reminder
 
 Nächste Schritte:
 1. VS Code neu laden (Ctrl+Shift+P → "Reload Window")

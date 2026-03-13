@@ -141,15 +141,20 @@ Nach dem Speichern neuer Inhalte — Entities für reichere Graph-Kanten extrahi
 - Status prüfen: `memcp_status()`, `memcp_graph_stats()`
 - Kleine Context-Operationen: Inspect, Peek, Filter
 
-## Auto-Save Hooks (laufen automatisch)
+## Auto-Hooks (laufen automatisch)
 
-- **PreCompact**: Vor `/compact` bekommst du eine blockierende Nachricht — speichere zuerst allen wichtigen Kontext
-- **Progressive Reminders**: Bei 10+ Turns (bedenke), 20+ (empfohlen), 30+ (Pflicht) — nur wenn Context ≥55% voll
-- **Reset Counter**: Nach `memcp_remember()` oder `memcp_load_context()` wird der Turn-Counter zurückgesetzt
+| Hook | Trigger | Aktion |
+|------|---------|--------|
+| **PreCompact** | Vor `/compact` | Blockiert — speichere zuerst allen Kontext |
+| **Progressive Reminders** | 10/20/30+ Turns bei ≥55% Context | Stufen: bedenke → empfohlen → Pflicht |
+| **Reset Counter** | Nach `memcp_remember()` / `memcp_load_context()` | Turn-Counter zurückgesetzt |
+| **Auto-Reinforce** | Nach jedem `memcp_recall()` | Erinnert: bewerte Treffer mit `memcp_reinforce()` |
+| **Session-Summary Tracker** | Nach `memcp_remember()` mit `session-summary` Tag | Markiert Summary als gespeichert |
+| **Session-End Reminder** | 15+ Turns ohne Summary | Stufen: empfohlen (15+) → Pflicht (25+) |
 
 ## Am Ende jeder Sitzung
 
-Speichere eine Abschlussepisode:
+Speichere eine Abschlussepisode (wird automatisch eingefordert nach 15+ Turns):
 ```
 memcp_remember(
     content="Session-Zusammenfassung: Was wurde erledigt, wichtige Erkenntnisse, offene Punkte",
@@ -159,7 +164,10 @@ memcp_remember(
 )
 ```
 
-## Feedback
+## Feedback (automatisch eingefordert nach Recall)
 
-- Recall-Treffer war nützlich → `memcp_reinforce(insight_id, helpful=True)`
-- Recall-Treffer war irrelevant → `memcp_reinforce(insight_id, helpful=False, note="Grund")`
+Nach jedem `memcp_recall()` wirst du erinnert, die Treffer zu bewerten:
+- Insight war hilfreich → `memcp_reinforce(insight_id, helpful=True)`
+- Insight war irrelevant → `memcp_reinforce(insight_id, helpful=False, note="Grund")`
+
+Das ist der stärkste Hebel für die Lernkurve — bewertete Insights werden bei der Destillierung bevorzugt.
