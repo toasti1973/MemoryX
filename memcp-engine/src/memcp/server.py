@@ -41,7 +41,11 @@ from memcp.tools.project_tools import do_projects, do_sessions
 from memcp.tools.retention_tools import do_restore, do_retention_preview, do_retention_run
 from memcp.tools.search_tools import do_search
 
-mcp = FastMCP("MemCP")
+mcp = FastMCP(
+    "MemCP",
+    host=os.environ.get("MEMCP_HOST", "0.0.0.0"),
+    port=int(os.environ.get("MEMCP_PORT", "3457")),
+)
 
 
 # ── Phase 1: Memory Tools ──────────────────────────────────────────────
@@ -593,12 +597,10 @@ def main() -> None:
     _init_session()
 
     transport = os.environ.get("MEMCP_TRANSPORT", "stdio").lower()
-    host = os.environ.get("MEMCP_HOST", "127.0.0.1")
-    port = int(os.environ.get("MEMCP_PORT", "3457"))
 
     if transport in ("http", "streamable-http"):
-        mcp.run(transport="streamable-http", host=host, port=port)
+        mcp.run(transport="streamable-http")
     elif transport == "sse":
-        mcp.run(transport="sse", host=host, port=port)
+        mcp.run(transport="sse")
     else:
         mcp.run()
