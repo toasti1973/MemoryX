@@ -63,7 +63,14 @@ def call_tool(name, args, desc):
             "method": "tools/call",
             "params": {"name": name, "arguments": args},
         }, follow_redirects=True, timeout=30)
-        data = resp.json()
+        # SSE response: parse "data: {...}" lines
+        data = None
+        for line in resp.text.splitlines():
+            if line.startswith("data: "):
+                data = json.loads(line[6:])
+                break
+        if data is None:
+            raise ValueError(f"No SSE data in response: {resp.text[:100]}")
 
         if "error" in data:
             failed += 1
