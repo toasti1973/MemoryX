@@ -5,8 +5,8 @@ WORKDIR /app
 COPY pyproject.toml README.md CHANGELOG.md ./
 COPY src/ src/
 
-# Install with search, fuzzy, semantic, and cache extras
-RUN pip install --no-cache-dir ".[search,fuzzy,semantic,cache]" httpx
+# Install with search, fuzzy, semantic, cache, and HNSW (O(log N) vector search) extras
+RUN pip install --no-cache-dir ".[search,fuzzy,semantic,cache,hnsw]" httpx
 
 # Health-check: TCP port check (streamable-http hat kein einfaches GET)
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

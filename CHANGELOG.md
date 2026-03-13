@@ -3,6 +3,28 @@
 All notable changes to the MemoryX Docker stack are documented in this file.
 For memcp-engine specific changes, see [memcp-engine/CHANGELOG.md](memcp-engine/CHANGELOG.md).
 
+## [2.2.0] — 2026-03-13
+
+### Added
+- **Hooks**: Full hook system (PreCompact, Notification, PostToolUse) based on upstream memcp
+  - PreCompact: blocks `/compact` until Claude saves all important context via `memcp_remember()`
+  - Notification: progressive save reminders at 10/20/30 turns when context ≥55% full
+  - PostToolUse: resets turn counter after `memcp_remember()` or `memcp_load_context()`
+- **Sub-Agents**: 4 RLM sub-agents deployed to `~/.claude/agents/` (adapted for `memory` server name)
+  - `memcp-analyzer` (Haiku): peek-identify-load-analyze pattern for large contexts
+  - `memcp-mapper` (Haiku): MAP phase for parallel chunk processing
+  - `memcp-synthesizer` (Sonnet): REDUCE phase combining mapper outputs
+  - `memcp-entity-extractor` (Haiku): LLM-based entity/relationship extraction
+- **HNSW Vector Index**: `usearch` package added to Dockerfile for O(log N) vector search
+- **Security**: `MEMCP_SECRET_DETECTION=true` blocks API keys/tokens/credentials from being stored
+- **Dedup**: `MEMCP_SEMANTIC_DEDUP=true` prevents near-duplicate insights (cosine ≥0.95)
+- **Config**: 6 new env vars exposed in docker-compose (consolidation threshold, retention periods, edge decay, context size, importance decay)
+
+### Changed
+- **CLAUDE.md**: Complete rewrite with full tool reference, importance guide, sub-agent patterns, and auto-save documentation
+- **PreCompact Hook**: Replaced HTTP-based approach with official `blockExecution`+`systemMessage` mechanism
+- **Dockerfile**: `[search,fuzzy,semantic,cache]` → `[search,fuzzy,semantic,cache,hnsw]`
+
 ## [2.1.0] — 2026-03-13
 
 ### Added
