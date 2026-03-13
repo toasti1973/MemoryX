@@ -578,12 +578,21 @@ def _init_session() -> None:
 
     Ensures state.json has current_project/current_session and
     sessions.json tracks the session lifecycle.
+    Also initializes the graph DB (schema + JSON migration) when
+    MEMCP_BACKEND=graph so admin-api can read it immediately.
     """
     from memcp.core.project import detect_project, generate_session_id, register_session
 
     project = detect_project()
     session_id = generate_session_id(project)
     register_session(session_id, project)
+
+    # Pre-initialize graph DB so schema exists before first request
+    if os.environ.get("MEMCP_BACKEND", "auto").lower() == "graph":
+        from memcp.core.memory import _ensure_graph_migrated
+
+        graph = _ensure_graph_migrated()
+        graph.close()
 
 
 def main() -> None:
