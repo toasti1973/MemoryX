@@ -7,6 +7,7 @@ const API_BASE = '/api';
 async function apiFetch(path, options = {}) {
   const res = await fetch(API_BASE + path, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {})

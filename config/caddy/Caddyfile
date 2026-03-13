@@ -20,7 +20,7 @@
         -Server
     }
 
-    # ── MCP-Endpunkt (Streamable HTTP via auth-proxy → memcp) ────────────
+    # ── MCP-Endpunkt (kein Basic Auth — nutzt eigene API-Key Auth) ───────
     handle /mcp* {
         reverse_proxy auth-proxy:4000 {
             header_up X-Forwarded-For {remote_host}
@@ -33,25 +33,6 @@
         }
     }
 
-    # ── Admin REST-API ────────────────────────────────────────────────────
-    handle /api* {
-        basicauth {
-            {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
-        }
-        reverse_proxy admin-api:3459 {
-            header_up X-Admin-Key {$ADMIN_API_KEY}
-        }
-    }
-
-    # ── Admin Web-Dashboard ───────────────────────────────────────────────
-    handle /admin* {
-        basicauth {
-            {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
-        }
-        uri strip_prefix /admin
-        reverse_proxy admin-ui:8080
-    }
-
     # ── Health-Check (kein Auth) ──────────────────────────────────────────
     handle /health {
         reverse_proxy auth-proxy:4000
@@ -60,6 +41,24 @@
     # ── Root Redirect zu Admin ────────────────────────────────────────────
     handle / {
         redir /admin/ 302
+    }
+
+    # ── Admin-Bereich: Dashboard + API unter gemeinsamer Basic Auth ──────
+    # Matcher fuer /api/* und /admin/* — gleicher Auth-Realm
+    @admin path /api/* /admin/*
+    basicauth @admin {
+        {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
+    }
+
+    handle /api* {
+        reverse_proxy admin-api:3459 {
+            header_up X-Admin-Key {$ADMIN_API_KEY}
+        }
+    }
+
+    handle /admin* {
+        uri strip_prefix /admin
+        reverse_proxy admin-ui:8080
     }
 
     tls internal
