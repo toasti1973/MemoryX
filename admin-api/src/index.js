@@ -335,22 +335,83 @@ app.post('/api/gc', adminAuth, (_req, res) => {
   }
 });
 
-// ─── /api/logs (liest aus auth-proxy auth_log.db) ───────────────────────
+// ─── /api/logs (kombiniert auth_log + graph.db Insight-Aktivität) ───────
 app.get('/api/logs', adminAuth, (req, res) => {
   const { lines = 100 } = req.query;
   const parsedLines = Math.max(1, Math.min(1000, parseInt(lines) || 100));
+  const combined = [];
+
+  // 1. Auth-Proxy Logs (historisch, falls vorhanden)
   const logDb = getAuthLogDb();
-  if (!logDb) return res.json([]);
-  try {
-    const rows = logDb.prepare(`
-      SELECT id, key_id, key_name, method, path as endpoint, status, latency_ms, created_at
-      FROM auth_log
-      ORDER BY created_at DESC LIMIT ?
-    `).all(parsedLines);
-    res.json(rows);
-  } finally {
-    logDb.close();
+  if (logDb) {
+    try {
+      const rows = logDb.prepare(`
+        SELECT id, key_id, key_name, method, path as endpoint, status, latency_ms, created_at,
+               'auth' as source
+        FROM auth_log
+        ORDER BY created_at DESC LIMIT ?
+      `).all(parsedLines);
+      for (const r of rows) {
+        combined.push({
+          ...r,
+          created_at: r.created_at ? new Date(r.created_at * 1000).toISOString() : null,
+        });
+      }
+    } finally {
+      logDb.close();
+    }
   }
+
+  // 2. Graph.db — Insight-Zugriffe (access_count > 0 = wurde abgerufen)
+  const memcpDb = getMemcpDb();
+  if (memcpDb) {
+    try {
+      // Erstellte Insights (remember)
+      const created = memcpDb.prepare(`
+        SELECT id, category, project, summary, created_at
+        FROM nodes ORDER BY created_at DESC LIMIT ?
+      `).all(parsedLines);
+      for (const n of created) {
+        combined.push({
+          id: 'c-' + n.id,
+          key_name: n.project || 'default',
+          method: 'remember',
+          endpoint: n.category || 'general',
+          status: 201,
+          latency_ms: null,
+          created_at: n.created_at,
+          summary: n.summary || n.id,
+          source: 'graph',
+        });
+      }
+      // Abgerufene Insights (recall/search)
+      const accessed = memcpDb.prepare(`
+        SELECT id, category, project, summary, access_count, last_accessed_at
+        FROM nodes WHERE access_count > 0 AND last_accessed_at IS NOT NULL
+        ORDER BY last_accessed_at DESC LIMIT ?
+      `).all(parsedLines);
+      for (const n of accessed) {
+        combined.push({
+          id: 'a-' + n.id,
+          key_name: n.project || 'default',
+          method: 'recall',
+          endpoint: n.category || 'general',
+          status: 200,
+          latency_ms: null,
+          created_at: n.last_accessed_at,
+          summary: n.summary || n.id,
+          access_count: n.access_count,
+          source: 'graph',
+        });
+      }
+    } finally {
+      memcpDb.close();
+    }
+  }
+
+  // Nach Zeitstempel sortieren (neueste zuerst), auf limit kürzen
+  combined.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  res.json(combined.slice(0, parsedLines));
 });
 
 // ─── /api/memcp/stats (Bridge-Route — detaillierte memcp-Statistiken) ───

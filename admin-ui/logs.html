@@ -56,8 +56,8 @@
 
   <main class="main">
     <div class="page-header">
-      <h1>Zugriffslogs</h1>
-      <p>API-Anfragen und Systemereignisse</p>
+      <h1>Aktivitätslogs</h1>
+      <p>Insight-Aktivität und Systemereignisse</p>
     </div>
 
     <div class="toolbar">
@@ -83,10 +83,10 @@
         <thead>
           <tr>
             <th style="padding-left:24px">Zeit</th>
-            <th>Endpunkt</th>
-            <th>Client</th>
-            <th>Namespace</th>
-            <th>Latenz</th>
+            <th>Aktion</th>
+            <th>Details</th>
+            <th>Projekt</th>
+            <th>Zugriffe</th>
             <th style="padding-right:24px">Status</th>
           </tr>
         </thead>
@@ -130,12 +130,16 @@ async function load() {
       const isError  = l.status >= 500;
       const isWarn   = l.status >= 400 && l.status < 500;
       const rowClass = isError ? 'tr-error' : isWarn ? 'tr-warn' : '';
+      const actionIcon = l.method === 'remember' ? '💾' : l.method === 'recall' ? '🔍' : '📡';
+      const actionLabel = l.method === 'remember' ? 'Gespeichert' : l.method === 'recall' ? 'Abgerufen' : escHtml(l.method || '—');
+      const detail = l.summary ? escHtml(l.summary.substring(0, 80)) : escHtml(l.endpoint || '—');
+      const accessCol = l.access_count != null ? l.access_count + '×' : l.latency_ms != null ? l.latency_ms + ' ms' : '—';
       return `<tr class="${rowClass}">
         <td style="padding-left:24px;white-space:nowrap;color:var(--text-muted)">${formatDate(l.created_at)}</td>
-        <td><code>${escHtml(l.endpoint || '—')}</code></td>
+        <td>${actionIcon} ${actionLabel} <code style="font-size:11px;color:var(--text-muted)">${escHtml(l.endpoint || '')}</code></td>
+        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(l.summary || '')}">${detail}</td>
         <td style="color:var(--text-muted)">${escHtml(l.key_name || l.key_id || '—')}</td>
-        <td style="color:var(--text-muted)">${escHtml(l.namespace || '—')}</td>
-        <td style="color:var(--text-muted)">${l.latency_ms != null ? l.latency_ms + ' ms' : '—'}</td>
+        <td style="color:var(--text-muted)">${accessCol}</td>
         <td style="padding-right:24px">
           <span class="badge ${l.status < 400 ? 'badge-green' : l.status < 500 ? 'badge-yellow' : 'badge-red'}" title="${l.status}">${statusText(l.status)}</span>
         </td>
