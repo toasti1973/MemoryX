@@ -107,24 +107,60 @@ Erstelle `CLAUDE.md` mit folgendem Inhalt:
 ```markdown
 # Projekt-Anweisungen für Claude
 
-## Memory-System (MemoryX)
+## Memory-System (MemoryX v2.2 — memcp)
 
-### Zu Beginn jeder Sitzung
-- Rufe `memory:memcp_recall` mit einer Beschreibung der aktuellen Aufgabe auf
-- Lies die zurückgegebenen Erinnerungen sorgfältig
-- Beachte besonders Einträge mit negativem Outcome — sie enthalten Warnungen
+Dieses Projekt nutzt ein MCP-basiertes persistentes Memory-System.
+Der MCP-Server ist in `.mcp.json` als `memory` registriert.
 
-### Während der Arbeit
-- Lösung für ein neues Problem gefunden → `memory:memcp_remember`
-- Architekturentscheidung getroffen → speichern
-- Ansatz ist fehlgeschlagen → ebenfalls speichern (mit Fehlerkontext)
+### Session-Startup (PFLICHT — BLOCKING REQUIREMENT)
+
+**CRITICAL: Du MUSST die folgenden 3 Schritte SOFORT zu Beginn jeder Sitzung ausführen, BEVOR du auf die erste Nutzeranfrage antwortest. Keine Ausnahmen. Überspringe diese Schritte NIEMALS, auch nicht wenn der User sofort eine Aufgabe stellt.**
+
+**Die MCP-Tools erscheinen als "deferred tools" — du musst sie AKTIV laden und aufrufen.**
+
+1. `memcp_recall(importance="critical")` — Kritische Regeln und Entscheidungen laden
+2. `memcp_status()` — Speicher-Statistiken prüfen
+3. `memcp_recall(project="<PROJEKTNAME>", limit=20)` — Projektkontext laden
+
+Wenn ein Tool-Aufruf fehlschlägt, melde das dem Nutzer sofort.
+
+### Wann speichern?
+
+Rufe `memcp_remember()` auf bei:
+
+| Kategorie | Wann | Beispiel |
+|-----------|------|---------|
+| `decision` | Architekturentscheidung getroffen | "SQLite statt PostgreSQL gewählt" |
+| `fact` | Systemgrenzen, API-Limits, Konfigurationswerte | "API Rate-Limit ist 100/min" |
+| `preference` | User-Vorlieben, Coding-Stil | "User bevorzugt deutsche Kommentare" |
+| `finding` | Bug-Entdeckungen, Edge-Cases | "WAL-Modus braucht read-write Mount" |
+| `todo` | Offene Aufgaben, Follow-ups | "Feature X noch implementieren" |
+| `general` | Alles andere | Session-Zusammenfassungen |
+
+### Importance-Level
+
+- `critical` — Darf NIEMALS vergessen werden
+- `high` — Wichtiger Kontext
+- `medium` — Nützliches Wissen
+- `low` — Nice-to-have
 
 ### Am Ende jeder Sitzung
-Speichere eine Zusammenfassung via `memory:memcp_remember`.
 
-### Feedback
-- Recall-Treffer war nützlich → `memory:memcp_reinforce` mit positivem Feedback
-- Recall-Treffer war irrelevant → `memory:memcp_reinforce` mit negativem Feedback
+Speichere eine Abschlussepisode:
+```
+memcp_remember(
+    content="Session-Zusammenfassung: Was wurde erledigt, wichtige Erkenntnisse, offene Punkte",
+    category="general",
+    importance="medium",
+    tags="session-summary,<projektname>"
+)
+```
+
+### Feedback (automatisch eingefordert nach Recall)
+
+Nach jedem `memcp_recall()` wirst du erinnert, die Treffer zu bewerten:
+- Insight war hilfreich → `memcp_reinforce(insight_id, helpful=True)`
+- Insight war irrelevant → `memcp_reinforce(insight_id, helpful=False, note="Grund")`
 ```
 
 **Fall B — Datei existiert bereits:**

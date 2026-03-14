@@ -5,13 +5,17 @@
 Dieses Projekt nutzt ein MCP-basiertes persistentes Memory-System.
 Der MCP-Server ist in `.mcp.json` als `memory` registriert.
 
-## Session-Startup (PFLICHT)
+## Session-Startup (PFLICHT — BLOCKING REQUIREMENT)
 
-Zu Beginn JEDER Sitzung:
+**CRITICAL: Du MUSST die folgenden 3 Schritte SOFORT zu Beginn jeder Sitzung ausführen, BEVOR du auf die erste Nutzeranfrage antwortest. Keine Ausnahmen. Überspringe diese Schritte NIEMALS, auch nicht wenn der User sofort eine Aufgabe stellt.**
+
+**Die MCP-Tools erscheinen als "deferred tools" — du musst sie AKTIV laden und aufrufen.**
 
 1. `memcp_recall(importance="critical")` — Kritische Regeln und Entscheidungen laden
 2. `memcp_status()` — Speicher-Statistiken prüfen
 3. `memcp_recall(project="memoryx", limit=20)` — Projektkontext laden
+
+Wenn ein Tool-Aufruf fehlschlägt, melde das dem Nutzer sofort.
 
 ## Wann speichern?
 
